@@ -15,7 +15,7 @@ export const SignUp = async (req, res, next) => {
     if (user) {
         return res.status(400).json({message: 'User already exists'});
     }
-    const transaction = await Transaction.findOne({matricNo: req.body.matricNo, status: 'completed'});
+    const transaction = await Transaction.findOne({matricNo: req.body.matricNo, email: req.body.email, status: 'completed'});
     if(!transaction){
         return res.status(400).json({message: 'No payment record found for this matric number. Please complete your payment before signing up.'});
     }
