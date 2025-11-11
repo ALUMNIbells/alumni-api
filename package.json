@@ -8,9 +8,9 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-     "postinstall": "npx puppeteer browsers install chrome" 
+    "postinstall": "npx puppeteer browsers install chrome"
   },
-  "keywords": [], 
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.18.3",
@@ -30,7 +30,7 @@
     "number-to-words": "^1.2.4",
     "puppeteer": "^24.10.2",
     "qrcode": "^1.5.4",
-    "resend": "^4.6.0",
+    "resend": "^4.8.0",
     "streamifier": "^0.1.1",
     "swiftenv": "^1.0.5"
   }
