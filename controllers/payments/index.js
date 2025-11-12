@@ -204,7 +204,7 @@ export const getAllTransactions = async (req, res) => {
     if(req.user.role !== 'admin'){
       return res.status(403).json({ message: 'Unauthorized' });
     }
-    const transactions = await Transaction.find({type: req.body.type}).sort({ createdAt: -1 });
+    const transactions = await Transaction.find({type: req.query.type}).sort({ createdAt: -1 });
     return res.status(200).json(transactions);
   } catch (error) {
     console.error('Error fetching transactions:', error);
