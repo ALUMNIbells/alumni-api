@@ -5,6 +5,7 @@ import { getEnv } from "swiftenv";
 import { generatePdfBuffer } from "../../utils/generatePdfBuffer.js";
 import cloudinary from "../../utils/cloudinary.js";
 import streamifier from "streamifier";
+import SystemState from "../../models/systemState.js";
 
 function addPaystackCharges(amountInNaira) {
   let baseFee = 0.015 * amountInNaira;
@@ -24,7 +25,13 @@ export const initializePayment = async (req, res) => {
     return res.status(400).json({ message: 'Missing required fields.' });
     }
     try {
-      const amount = Number(getEnv('AMOUNT'));
+      const systemState = await SystemState.findOne();
+      let amount 
+      if(type === 'ALUMNI DUES'){
+        amount = systemState.alumniDues
+      }else if(type === 'SOURVENIER'){
+        amount = systemState.sourvenierPrice
+      }
       const finalAmount = addPaystackCharges(amount); 
       const paystackRes = await axios.post(
       'https://api.paystack.co/transaction/initialize',
