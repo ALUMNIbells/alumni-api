@@ -16,6 +16,7 @@ function addPaystackCharges(amountInNaira) {
 
 export const initializePayment = async (req, res) => {
     const { matricNo, fullName, email, phone, type, college, course} = req.body;
+    //check for all the fields
     if (!matricNo ||
         !fullName ||
         !email ||
@@ -25,10 +26,17 @@ export const initializePayment = async (req, res) => {
     return res.status(400).json({ message: 'Missing required fields.' });
     }
     try {
+      
+      //get appropraite amount
       const systemState = await SystemState.findOne();
       let amount 
-      if(type === 'ALUMNI DUES'){
+      if(type === 'ALUMNI CLEARANCE DUES'){
         amount = systemState.alumniDues
+        //check if user has already paid
+        const existingPayment = await Transaction.findOne({ matricNo, email, type: 'ALUMNI CLEARANCE DUES', status: 'completed' });
+        if (existingPayment) {
+          return res.status(400).json({ message: 'You have already paid for Alumni Clearance Dues. Check Your Transaction history' });
+        }
       }else if(type === 'SOURVENIER'){
         amount = systemState.sourvenierPrice
       }
@@ -200,6 +208,37 @@ export const getAllTransactions = async (req, res) => {
     return res.status(200).json(transactions);
   } catch (error) {
     console.error('Error fetching transactions:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+export const markSouvenirCollected = async (req, res) => {
+  const { transactionId } = req.params;
+  try {
+    if(req.user.role !== 'admin'){
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    const transaction = await Transaction.findById(transactionId);
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    if(transaction.status !== 'completed') {
+      return res.status(400).json({ message: 'Cannot collect souvenir for an incomplete transaction' });
+    }
+    if (transaction.type !== 'ALUMNI CLEARANCE DUES') {
+      return res.status(400).json({ message: 'This transaction is not for a souvenir' });
+    }
+    if (transaction.collectedSouvenir) {
+      return res.status(400).json({ message: 'Souvenir has already been collected for this transaction' });
+    }
+
+    transaction.collectedSouvenir = true;
+    transaction.collectedAt = new Date();
+    await transaction.save();
+
+    return res.status(200).json({ message: 'Souvenir marked as collected', transaction });
+  } catch (error) {
+    console.error('Error marking souvenir as collected:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }
