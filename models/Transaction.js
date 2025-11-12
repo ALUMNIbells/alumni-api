@@ -15,6 +15,7 @@ const TransactionSchema = new mongoose.Schema({
     type: {type:String, required:true, default: 'alumni dues'},
     college: {type:String, required:true}, 
     course: {type:String, required:true},
+    
 },{
     timestamps: true,
 });
