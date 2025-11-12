@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { getEnv, listEnv } from "swiftenv";
+import Admin from "../../models/Admin.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -60,7 +61,7 @@ export const SignIn = async (req, res, next) => {
     if (!isPasswordCorrect) {
         return res.status(400).json({message: 'Invalid password'});
     }
-    const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, {expiresIn: '1d'});
+    const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: 'student'}, process.env.JWT_SECRET, {expiresIn: '1d'});
     return res.status(200).json({token, user: {id: user._id, fullName: user.fullName, email: user.email}});
 }
 
@@ -104,7 +105,7 @@ export const ResendVerificationToken = async (req, res, next) => {
 
         const data = {
             to: email,
-            subject: "Resend: Verify your email address",
+            subject: "Resend: Verify your email address", 
             text: `Your new verification token is ${token}`,
         };
 
@@ -117,4 +118,41 @@ export const ResendVerificationToken = async (req, res, next) => {
     }
     
 }
+
+export const AddAdmin = async (req, res, next) => {
+    if(req.user.role !== 'admin'){
+        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    }
+    if(!req.body.email || !req.body.password || !req.body.fullName){
+        return res.status(400).json({message: 'Missing required fields.'});
+    }
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(req.body.password, salt);
+    const user = await Admin.findOne({email: req.body.email}); 
+    if (user) {
+        return res.status(400).json({message: 'User already exists'});
+    }
+    
+    const newUser = new Admin({
+       ...req.body,
+        password: hash,
+    });
+    await newUser.save();
+
+    return res.status(200).json({message: 'User created successfully'});
+
+}
+export const AdminSignIn = async (req, res, next) => {
+    const user = await Admin.findOne({email: req.body.email});
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
+    if (!isPasswordCorrect) {
+        return res.status(400).json({message: 'Invalid password'});
+    }
+    const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: 'admin'}, process.env.JWT_SECRET);
+    return res.status(200).json({token, user: {id: user._id, fullName: user.fullName, email: user.email}});
+}
+    
 

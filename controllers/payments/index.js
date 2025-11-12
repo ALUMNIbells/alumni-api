@@ -183,3 +183,16 @@ export const VerifyPayment = async (req, res) => {
     return res.status(500).json({ message: "Payment verification failed" });
   }
 };
+
+export const getAllTransactions = async (req, res) => {
+  try {
+    if(req.user.role !== 'admin'){
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    const transactions = await Transaction.find({type: req.body.type}).sort({ createdAt: -1 });
+    return res.status(200).json(transactions);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+}
