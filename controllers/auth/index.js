@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { getEnv, listEnv } from "swiftenv";
 import Admin from "../../models/Admin.js";
+import { emailVerificationTemplate } from "../../utils/emailTemplates.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -23,7 +24,7 @@ export const SignUp = async (req, res, next) => {
     let token, tokenExpiry;
     //generate verification token and send email (omitted for brevity)
     token = Math.floor(100000 + Math.random() * 900000).toString();
-    tokenExpiry = Date.now() + 5 * 60 * 1000; // 30 minutes from now
+    tokenExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
     const newUser = new Student({
         matricNo: transaction.matricNo,
@@ -38,13 +39,19 @@ export const SignUp = async (req, res, next) => {
     });
     await newUser.save();
 
-    const data = {
-        to: req.body.email,
-        subject: "Verify your email address",
-        text: `Your verification token is ${token}`,
-    };
 
-    await resend.emails.send(data);
+    const { data, error } = await resend.emails.send({
+        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
+        to: req.body.email,
+        subject: 'Verify your email address',
+        html: emailVerificationTemplate(transaction.fullName, token),
+    });
+
+    if (error) {
+        return console.error({ error });
+    }
+
+    console.log({ data });
 
     return res.status(200).json({message: 'User created successfully'});
 }
@@ -103,13 +110,18 @@ export const ResendVerificationToken = async (req, res, next) => {
         user.tokenExpiry = tokenExpiry;
         await user.save();
 
-        const data = {
+        const { data, error } = await resend.emails.send({
+            from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
             to: email,
-            subject: "Resend: Verify your email address", 
-            text: `Your new verification token is ${token}`,
-        };
+            subject: 'Verify your email address',
+            html: emailVerificationTemplate(user.fullName, token),
+        });
 
-        await resend.emails.send(data);
+        if (error) {
+            return console.error({ error });
+        }
+
+        console.log({ data });
 
         return res.status(200).json({message: 'Verification token resent successfully'});
     } catch (error) {
@@ -154,5 +166,46 @@ export const AdminSignIn = async (req, res, next) => {
     const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: 'admin'}, process.env.JWT_SECRET);
     return res.status(200).json({token, user: {id: user._id, fullName: user.fullName, email: user.email}});
 }
+
+export const DeleteAdmin = async (req, res, next) => {
+    if(req.user.role !== 'admin'){
+        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    }
+    const { adminId } = req.params;
+    const user = await Admin.findById(adminId);
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    await user.remove();
+    return res.status(200).json({message: 'User deleted successfully'});
+}
+
+export const GetAllAdmins = async (req, res, next) => {
+    if(req.user.role !== 'admin'){
+        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    }
+    const admins = await Admin.find().select('-password');
+    return res.status(200).json(admins);
+}
+
+export const AdminChangePassword = async (req, res, next) => {
+    if(req.user.role !== 'admin'){
+        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    }
+    const user = await Admin.findById(req.user.id);
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    const isPasswordCorrect = bcrypt.compareSync(req.body.currentPassword, user.password);
+    if (!isPasswordCorrect) {
+        return res.status(400).json({message: 'Invalid current password'});
+    }
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(req.body.newPassword, salt);
+    user.password = hash;
+    await user.save();
+    return res.status(200).json({message: 'Password changed successfully'});
+}
+
     
 

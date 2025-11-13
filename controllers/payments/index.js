@@ -6,6 +6,8 @@ import { generatePdfBuffer } from "../../utils/generatePdfBuffer.js";
 import cloudinary from "../../utils/cloudinary.js";
 import streamifier from "streamifier";
 import SystemState from "../../models/systemState.js";
+import { Resend } from "resend";
+import { welcomeEmailTemplate } from "../../utils/emailTemplates.js";
 
 function addPaystackCharges(amountInNaira) {
   let baseFee = 0.015 * amountInNaira;
@@ -165,6 +167,22 @@ export const VerifyPayment = async (req, res) => {
         { status: "completed", paidAt: new Date(paymentData.paid_at), receiptUrl: upload.secure_url },
         { new: true }
       );
+
+      if(receipts.length === 0){
+        const { data, error } = await Resend.emails.send({
+            from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
+            to: email,
+            subject: 'Verify your email address',
+            html: welcomeEmailTemplate(transaction.fullName),
+        });
+  
+        if (error) {
+            return console.error({ error });
+        }
+  
+        console.log({ data });
+      }
+
 
       
 
