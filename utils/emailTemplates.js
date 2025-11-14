@@ -112,6 +112,120 @@ export const emailVerificationTemplate = (fullName, code) => {
 
     `
 }
+export const passwordResetTemplate = ( code) => {
+    return `
+        <!DOCTYPE html>
+        <html lang="en" style="margin: 0; padding: 0;">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Password Reset</title>
+        </head>
+        <body
+            style="
+            margin: 0;
+            padding: 0;
+            background-color: #f5f8ff;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            "
+        >
+            <table
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="background-color: #f5f8ff; padding: 40px 0;"
+            >
+            <tr>
+                <td align="center">
+                <table
+                    width="480"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                    "
+                >
+                    <!-- Header -->
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #0a66c2;
+                        color: #ffffff;
+                        padding: 24px 0;
+                        font-size: 22px;
+                        font-weight: bold;
+                        letter-spacing: 0.5px;
+                        "
+                    >
+                        Password Reset Request
+                    </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                    <td style="padding: 32px 24px; color: #333333;">
+                        <p style="font-size: 16px; margin: 0 0 12px;">
+                        Hello,
+                        </p>
+                        <p style="font-size: 16px; margin: 0 0 24px;">
+                        Please use the following  code to reset your password:
+                        </p>
+
+                        <!-- Verification Code Box -->
+                        <div
+                        style="
+                            text-align: center;
+                            background-color: #f0f6ff;
+                            border: 2px dashed #0a66c2;
+                            color: #0a66c2;
+                            font-size: 28px;
+                            font-weight: bold;
+                            letter-spacing: 6px;
+                            padding: 16px 0;
+                            border-radius: 8px;
+                            margin: 0 auto 24px;
+                        "
+                        >
+                            ${code}
+                        </div>
+
+                        <p style="font-size: 15px; margin: 0 0 12px; color: #555;">
+                        This code will expire in <strong>5 minutes</strong>. If you didn’t request this, you can safely ignore this email.
+                        </p>
+                    </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #f5f8ff;
+                        padding: 20px;
+                        font-size: 13px;
+                        color: #777;
+                        "
+                    >
+                        &copy; 2025 BELLSTECH ALUMNI. All rights reserved.
+                    </td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            </table>
+        </body>
+        </html>
+
+    `
+}
+
+
 
 export const welcomeEmailTemplate = (fullName) => {
     return `
@@ -204,7 +318,7 @@ export const welcomeEmailTemplate = (fullName) => {
 
                         <div style="text-align: center; margin: 30px 0;">
                         <a
-                            href="{{ALUMNI_PORTAL_URL}}"
+                            href="https://www.bellsuniversityalumni.com/register"
                             style="
                             background-color: #0a66c2;
                             color: #ffffff;

@@ -1,13 +1,17 @@
 import axios from "axios";
 import Transaction from "../../models/Transaction.js";
 import logEvent from "../../utils/logger.js";
-import { getEnv } from "swiftenv";
+import { getEnv, listEnv } from "swiftenv";
 import { generatePdfBuffer } from "../../utils/generatePdfBuffer.js";
 import cloudinary from "../../utils/cloudinary.js";
 import streamifier from "streamifier";
 import SystemState from "../../models/systemState.js";
-import { Resend } from "resend";
 import { welcomeEmailTemplate } from "../../utils/emailTemplates.js";
+import { Resend } from "resend";
+
+
+const {RESEND_API_KEY} = listEnv();
+const resend = new Resend(RESEND_API_KEY); 
 
 function addPaystackCharges(amountInNaira) {
   let baseFee = 0.015 * amountInNaira;
@@ -168,11 +172,11 @@ export const VerifyPayment = async (req, res) => {
         { new: true }
       );
 
-      if(receipts.length === 0){
-        const { data, error } = await Resend.emails.send({
+      if(receipts.length < 3){
+        const { data, error } = await resend.emails.send({
             from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-            to: email,
-            subject: 'Verify your email address',
+            to: transaction.email,
+            subject: 'Welcome to Bells University Alumni Community',
             html: welcomeEmailTemplate(transaction.fullName),
         });
   
@@ -183,8 +187,6 @@ export const VerifyPayment = async (req, res) => {
         console.log({ data });
       }
 
-
-      
 
       // Respond
       return res.status(200).json({

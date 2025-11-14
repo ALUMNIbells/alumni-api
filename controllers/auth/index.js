@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { getEnv, listEnv } from "swiftenv";
 import Admin from "../../models/Admin.js";
-import { emailVerificationTemplate } from "../../utils/emailTemplates.js";
+import { emailVerificationTemplate, passwordResetTemplate } from "../../utils/emailTemplates.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -69,7 +69,15 @@ export const SignIn = async (req, res, next) => {
         return res.status(400).json({message: 'Invalid password'});
     }
     const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: 'student'}, process.env.JWT_SECRET, {expiresIn: '1d'});
-    return res.status(200).json({token, user: {id: user._id, fullName: user.fullName, email: user.email}});
+    return res.status(200).json({token, user: {
+        id: user._id, 
+        fullName: user.fullName, 
+        email: user.email,
+        phone: user.phone,
+        college: user.college,
+        matricNo: user.matricNo,
+        course: user.course
+    }});
 }
 
 export const VerifyEmail = async (req, res, next) => {
@@ -188,23 +196,104 @@ export const GetAllAdmins = async (req, res, next) => {
     return res.status(200).json(admins);
 }
 
-export const AdminChangePassword = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
-        return res.status(403).json({message: 'You are not authorized to perform this action'});
-    }
-    const user = await Admin.findById(req.user.id);
+export const AdminPasswordResetSend = async (req, res, next) => {
+    const { email } = req.body;
+    const user = await Admin.findOne({email});
     if (!user) {
         return res.status(404).json({message: 'User not found'});
     }
-    const isPasswordCorrect = bcrypt.compareSync(req.body.currentPassword, user.password);
-    if (!isPasswordCorrect) {
-        return res.status(400).json({message: 'Invalid current password'});
+    //generate reset token and send email (omitted for brevity)
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenExpiry = Date.now() + 5 * 60 * 1000; // 15 minutes from now
+    user.resetToken = token;
+    user.resetTokenExpiry = tokenExpiry;
+    await user.save();
+
+    const { data, error } = await resend.emails.send({
+        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
+        to: email,
+        subject: 'Reset your password',
+        html: passwordResetTemplate(token),
+    });
+
+    if (error) {
+        return console.error({ error });
+    }
+
+    console.log({ data });
+
+    return res.status(200).json({message: 'Password reset token sent successfully'});
+}
+
+export const AdminPasswordResetVerify = async (req, res, next) => {
+    const { email, token, newPassword } = req.body;
+    const user = await Admin.findOne({email});
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    if (user.resetToken !== token) {
+        return res.status(400).json({message: 'Invalid token'});
+    }
+    if (user.resetTokenExpiry < Date.now()) {
+        return res.status(400).json({message: 'Token expired'});
     }
     const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(req.body.newPassword, salt);
+    const hash = bcrypt.hashSync(newPassword, salt);
     user.password = hash;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
     await user.save();
-    return res.status(200).json({message: 'Password changed successfully'});
+    return res.status(200).json({message: 'Password reset successfully'});
+}
+
+export const studentPasswordResetSend = async (req, res, next) => {
+    const { email } = req.body;
+    const user = await Student.findOne({email});
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    //generate reset token and send email (omitted for brevity)
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+    user.resetToken = token;
+    user.resetTokenExpiry = tokenExpiry;
+    await user.save();
+
+    const { data, error } = await resend.emails.send({
+        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
+        to: email,
+        subject: 'Reset your password',        
+        html: passwordResetTemplate(token),        
+    });
+
+    if (error) {
+        return console.error({ error });
+    }
+
+    console.log({ data });
+
+    return res.status(200).json({message: 'Password reset token sent successfully'});
+}
+
+export const studentPasswordResetVerify = async (req, res, next) => {
+    const { email, token, newPassword } = req.body;
+    const user = await Student.findOne({email});
+    if (!user) {
+        return res.status(404).json({message: 'User not found'});
+    }
+    if (user.resetToken !== token) {
+        return res.status(400).json({message: 'Invalid token'});
+    }
+    if (user.resetTokenExpiry < Date.now()) {
+        return res.status(400).json({message: 'Token expired'});
+    }
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(newPassword, salt);
+    user.password = hash;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+    return res.status(200).json({message: 'Password reset successfully'});
 }
 
     
