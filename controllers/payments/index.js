@@ -46,7 +46,7 @@ export const initializePayment = async (req, res) => {
       }else if(type === 'SOURVENIER'){
         amount = systemState.sourvenierPrice
       }
-      const finalAmount = addPaystackCharges(amount); 
+      const finalAmount = amount; 
       const paystackRes = await axios.post(
       'https://api.paystack.co/transaction/initialize',
       {
