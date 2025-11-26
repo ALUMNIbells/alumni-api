@@ -13,12 +13,10 @@ import { Resend } from "resend";
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
 
-function addPaystackCharges(amountInNaira) {
-  let baseFee = 0.015 * amountInNaira;
-  if (amountInNaira > 2500) baseFee += 100;
-  if (baseFee > 2000) baseFee = 2000;
-  return amountInNaira + baseFee ;
-}
+// function addPaystackCharges(amountInNaira) {
+  
+//   return amountInNaira + 300 ;
+// }
 
 export const initializePayment = async (req, res) => {
     const { matricNo, fullName, email, phone, type, college, course} = req.body;
@@ -46,7 +44,7 @@ export const initializePayment = async (req, res) => {
       }else if(type === 'SOURVENIER'){
         amount = systemState.sourvenierPrice
       }
-      const finalAmount = amount; 
+      const finalAmount = amount + 300; //add 300 naira paystack charges
       const paystackRes = await axios.post(
       'https://api.paystack.co/transaction/initialize',
       {
