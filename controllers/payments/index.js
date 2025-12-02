@@ -24,26 +24,55 @@ export const initializePayment = async (req, res) => {
     if (!matricNo ||
         !fullName ||
         !email ||
-        !phone
-        ) 
+        !phone ) 
     {
     return res.status(400).json({ message: 'Missing required fields.' });
     }
     try {
-      
       //get appropraite amount
       const systemState = await SystemState.findOne();
       let amount 
-      if(type === 'ALUMNI CLEARANCE DUES'){
-        amount = systemState.alumniDues
-        //check if user has already paid
-        const existingPayment = await Transaction.findOne({ matricNo, email, type: 'ALUMNI CLEARANCE DUES', status: 'completed' });
-        if (existingPayment) {
-          return res.status(400).json({ message: 'You have already paid for Alumni Clearance Dues. Check Your Transaction history' });
-        }
-      }else if(type === 'SOURVENIER'){
-        amount = systemState.sourvenierPrice
+      switch(type){
+        case 'ALUMNI CLEARANCE DUES':
+          amount = systemState.alumniDues
+          //check if user has already paid
+          const existingPayment = await Transaction.findOne({ matricNo, email, type: 'ALUMNI CLEARANCE DUES', status: 'completed' });
+          if (existingPayment) {
+            return res.status(400).json({ message: 'You have already paid for Alumni Clearance Dues. Check Your Transaction history' });
+          }
+          break;
+        case 'HOODIE':
+          amount = systemState.sourvenierPrice
+          break;
+        case 'FAN':
+          amount = systemState.sourvenierPrice2
+          break;
+        case 'ALUMNI DONATION':
+          amount = systemState.alumniDonation
+          break;
+        default:
+          return res.status(400).json({ message: 'Invalid payment type.' });
       }
+
+      let split_code;
+
+      switch(type){
+        case 'ALUMNI CLEARANCE DUES':
+          split_code = 'SPL_qb31b7ThqX'; // Alumni Clearance Dues Payments
+          break;
+        case 'ALUMNI DONATION':
+          split_code = 'SPL_Yz4usMsAJz'; // General Alumni Payments
+          break;
+        case 'HOODIE':
+          split_code = ''; // Hoodie Payments
+          break;
+        case 'FAN':
+          split_code = ''; // Fan Payments
+          break;
+        default:
+          split_code = ''; // Default Split Code
+      }
+      
       const finalAmount = amount + 300; //add 300 naira paystack charges
       const paystackRes = await axios.post(
       'https://api.paystack.co/transaction/initialize',
@@ -51,7 +80,8 @@ export const initializePayment = async (req, res) => {
         email: email,
         name: fullName,
         amount: Math.round(finalAmount * 100), 
-        reference: `${matricNo}-${Date.now()}`, 
+        reference: `${matricNo}-${Date.now()}`,
+        split_code: split_code,
         metadata: {
           matricNo,
           fullName,
@@ -170,7 +200,7 @@ export const VerifyPayment = async (req, res) => {
         { new: true }
       );
 
-      if(receipts.length < 3){
+      if(transaction.type === 'ALUMNI CLEARANCE DUES') {
         const { data, error } = await resend.emails.send({
             from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
             to: transaction.email,

@@ -12,7 +12,12 @@ const TransactionSchema = new mongoose.Schema({
     paymentMethod: {type:String, required:true, enum: ['card', 'bank_transfer', 'mobile_money'], default: 'card'},
     receiptUrl: {type:String},
     paidAt: {type: Date},
-    type: {type:String, required:true, default: 'ALUMNI CLEARANCE DUES', enum: ['ALUMNI CLEARANCE DUES', 'SOURVENIER']},
+    type: {type:String, required:true, default: 'ALUMNI CLEARANCE DUES', enum: [
+        'ALUMNI CLEARANCE DUES', 
+        'ALUMNI DONATION',
+        'FAN',
+        'HOODIE', 
+    ]},
     college: {type:String, required:true}, 
     course: {type:String, required:true},
     collectedSouvenir: { type: Boolean, default: false },
