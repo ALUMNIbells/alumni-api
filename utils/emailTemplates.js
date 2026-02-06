@@ -1,5 +1,4 @@
 
-
 export const emailVerificationTemplate = (fullName, code) => {
     return `
         <!DOCTYPE html>
@@ -112,6 +111,7 @@ export const emailVerificationTemplate = (fullName, code) => {
 
     `
 }
+
 export const passwordResetTemplate = ( code) => {
     return `
         <!DOCTYPE html>
@@ -224,8 +224,6 @@ export const passwordResetTemplate = ( code) => {
 
     `
 }
-
-
 
 export const welcomeEmailTemplate = (fullName) => {
     return `

@@ -8,123 +8,143 @@ import streamifier from "streamifier";
 import SystemState from "../../models/systemState.js";
 import { welcomeEmailTemplate } from "../../utils/emailTemplates.js";
 import { Resend } from "resend";
-
+import PAYMENT_TYPES from "../../utils/paymentConfig.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
 
-// function addPaystackCharges(amountInNaira) {
-  
-//   return amountInNaira + 300 ;
-// }
 
 export const initializePayment = async (req, res) => {
-    const { matricNo, fullName, email, phone, type, college, course} = req.body;
-    //check for all the fields
-    if (!matricNo ||
-        !fullName ||
-        !email ||
-        !phone ) 
-    {
-    return res.status(400).json({ message: 'Missing required fields.' });
+  const { matricNo, fullName, email, phone, type, college, course, sku, qty } = req.body;
+
+  if (!matricNo || !fullName || !email || !phone || !type) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  try {
+    const systemState = await SystemState.findOne();
+    if (!systemState) {
+      return res.status(500).json({ message: "System state not configured." });
     }
-    try {
-      //get appropraite amount
-      const systemState = await SystemState.findOne();
-      let amount 
-      switch(type){
-        case 'ALUMNI CLEARANCE DUES':
-          amount = systemState.alumniDues
-          //check if user has already paid
-          const existingPayment = await Transaction.findOne({ matricNo, email, type: 'ALUMNI CLEARANCE DUES', status: 'completed' });
-          if (existingPayment) {
-            return res.status(400).json({ message: 'You have already paid for Alumni Clearance Dues. Check Your Transaction history' });
-          }
-          break;
-        case 'HOODIE':
-          amount = systemState.sourvenierPrice
-          break;
-        case 'FAN':
-          amount = systemState.sourvenierPrice2
-          break;
-        case 'ALUMNI DONATION':
-          amount = systemState.alumniDonation
-          break;
-        default:
-          return res.status(400).json({ message: 'Invalid payment type.' });
+
+    // only lookup souvenir if it is a souvenir purchase
+    let souvenir = null;
+    if (type === "SOUVENIR_PURCHASE") {
+      if (!sku) return res.status(400).json({ message: "SKU is required for souvenir purchases." });
+
+      souvenir = systemState.souvenirs?.find((s) => s.sku === sku && s.active);
+      if (!souvenir) return res.status(404).json({ message: "Souvenir not found or is inactive." });
+    }
+
+    let amount;
+
+    if (type === "SOUVENIR_PURCHASE") {
+      const q = Number(qty ?? 1);
+      if (!Number.isFinite(q) || q < 1) {
+        return res.status(400).json({ message: "qty must be a number >= 1" });
+      }
+      amount = q * souvenir.price;
+    } else {
+      const paymentConfig = PAYMENT_TYPES[type];
+      if (!paymentConfig) return res.status(400).json({ message: "Invalid payment type." });
+
+      amount = systemState.fees?.[paymentConfig.amountKey];
+      if (amount === undefined || amount === null) {
+        return res.status(500).json({ message: `Fee not set for ${type}` });
       }
 
-      let split_code;
-
-      switch(type){
-        case 'ALUMNI CLEARANCE DUES':
-          split_code = 'SPL_qb31b7ThqX'; // Alumni Clearance Dues Payments
-          break;
-        case 'ALUMNI DONATION':
-          split_code = 'SPL_Yz4usMsAJz'; // General Alumni Payments
-          break;
-        case 'HOODIE':
-          split_code = ''; // Hoodie Payments
-          break;
-        case 'FAN':
-          split_code = ''; // Fan Payments
-          break;
-        default:
-          split_code = ''; // Default Split Code
-      }
-      
-      const finalAmount = amount + 300; //add 300 naira paystack charges
-      const paystackRes = await axios.post(
-      'https://api.paystack.co/transaction/initialize',
-      {
-        email: email,
-        name: fullName,
-        amount: Math.round(finalAmount * 100), 
-        reference: `${matricNo}-${Date.now()}`,
-        split_code: split_code,
-        metadata: {
+      // check if user has already paid
+      if (type === "ALUMNI CLEARANCE DUES") {
+        const existing = await Transaction.findOne({
           matricNo,
-          fullName,
-          email,
-          phone,
-          type,
-          college,
-          course
-        },
-        callback_url: getEnv('CALLBACK_URL'),
+          type: "ALUMNI CLEARANCE DUES",
+          status: "completed",
+        });
+        if (existing) {
+          return res.status(400).json({ message: "You have already paid Alumni Clearance Dues." });
+        }
+      }
+    }
+
+    const split_code = PAYMENT_TYPES[type]?.splitCode || "";
+    const finalAmount = amount + 300;
+
+    const paystackRes = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        name: fullName,
+        amount: Math.round(finalAmount * 100),
+        reference: `${matricNo}-${Date.now()}`,
+        split_code,
+        metadata: { matricNo, fullName, email, phone, type, college, course },
+        callback_url: getEnv("CALLBACK_URL"),
       },
       {
         headers: {
-          Authorization: `Bearer ${getEnv('PAYSTACK_SECRET_KEY')}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getEnv("PAYSTACK_SECRET_KEY")}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    const { authorization_url, access_code, reference } = paystackRes.data.data;
+    const { authorization_url, reference } = paystackRes.data.data;
 
-    
+    //items array
+    const items = [];
+
+    if (type === "SOUVENIR_PURCHASE") {
+      items.push({
+        sku: souvenir.sku,
+        name: souvenir.name,
+        unitPrice: souvenir.price,
+        qty: Number(qty ?? 1),
+      });
+    }
+
+    //Add free souvenir by default for alumni dues
+    if (type === "ALUMNI CLEARANCE DUES") {
+      const free = systemState.souvenirs?.find((s) => s.sku === "FREE" && s.active);
+      if (free) {
+        items.push({
+          sku: free.sku,
+          name: free.name,       
+          unitPrice: 0,          
+          qty: 1,
+        });
+      }
+      
+    }
+
     const newTransaction = new Transaction({
       matricNo,
       fullName,
       email,
       phone,
       type,
-      amount: amount,
+      amount,
       college,
       course,
       paymentref: reference,
+      items,
     });
+
     await newTransaction.save();
 
-    await logEvent('PAYMENT_INITIATED', {user: email, ip: req.ip, action: 'Payment Initiated', details: `Payment initiated successfully for ${fullName}-${matricNo}-${phone} payment for ${type}`});
+    await logEvent("PAYMENT_INITIATED", {
+      user: email,
+      ip: req.ip,
+      action: "Payment Initiated",
+      details: `Payment initiated successfully for ${fullName}-${matricNo}-${phone} payment for ${type}`,
+    });
 
     return res.status(200).json({ authorization_url, reference });
   } catch (err) {
     console.error(err.response?.data || err.message);
-    return res.status(500).json({ message: `Payment initialization failed`, err });
+    return res.status(500).json({ message: "Payment initialization failed" });
   }
 };
+
 
 export const getStudentTransactions = async (req, res) => {
   const { matricNo } = req.params;
@@ -149,7 +169,7 @@ export const VerifyPayment = async (req, res) => {
   }
 
   try {
-    // 1. Verify via Paystack
+    // Verify via Paystack
     const response = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: {
         Authorization: `Bearer ${getEnv('PAYSTACK_SECRET_KEY')}`,
@@ -161,17 +181,23 @@ export const VerifyPayment = async (req, res) => {
 
     const paymentData = response.data.data;
     const transaction = await Transaction.findOne({ paymentref: reference });
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found." });
+    }
     console.log('Transaction from DB:', transaction);
     const paidAt = new Date(paymentData.paid_at).toLocaleString();
-
     console.log(paidAt);
     console.log(Intl.DateTimeFormat().resolvedOptions());
     console.log(new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }));
 
-    // 2. Handle Success
+    // Handle Success
     if (paymentData.status === "success") {
       // Generate Receipt PDF
-      await logEvent('PAYMENT_SUCCESS', {user: transaction.email, ip: req.ip, action: 'Payment Attempt', details: `Successful payment of ${transaction.amount} for ${transaction.fullName} -${transaction.matricNo} payment for ${transaction.type}`});
+      await logEvent('PAYMENT_SUCCESS', 
+        { user: transaction.email, 
+          ip: req.ip, action: 'Payment Attempt', 
+          details: `Successful payment of ${transaction.amount} for ${transaction.fullName} -${transaction.matricNo} payment for ${transaction.type}`
+        });
       console.log('Generating PDF Receipt...');
       const receipts = await Transaction.find({matricNo: transaction.matricNo, status: 'completed'})
       //receipt number in thousands with leading zeros
@@ -214,7 +240,6 @@ export const VerifyPayment = async (req, res) => {
   
         console.log({ data });
       }
-
 
       // Respond
       return res.status(200).json({
@@ -261,32 +286,54 @@ export const getAllTransactions = async (req, res) => {
 }
 
 export const markSouvenirCollected = async (req, res) => {
-  const { transactionId } = req.params;
+  const { transactionId, sku } = req.params;
+
   try {
-    if(req.user.role !== 'admin'){
-      return res.status(403).json({ message: 'Unauthorized' });
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
     }
+
+    if (!sku) {
+      return res.status(400).json({ message: "sku is required" });
+    }
+
     const transaction = await Transaction.findById(transactionId);
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
-    }
-    if(transaction.status !== 'completed') {
-      return res.status(400).json({ message: 'Cannot collect souvenir for an incomplete transaction' });
-    }
-    if (transaction.type !== 'ALUMNI CLEARANCE DUES') {
-      return res.status(400).json({ message: 'This transaction is not for a souvenir' });
-    }
-    if (transaction.collectedSouvenir) {
-      return res.status(400).json({ message: 'Souvenir has already been collected for this transaction' });
+      return res.status(404).json({ message: "Transaction not found" });
     }
 
-    transaction.collectedSouvenir = true;
-    transaction.collectedAt = new Date();
+    if (transaction.status !== "completed") {
+      return res
+        .status(400)
+        .json({ message: "Cannot fulfill items for an incomplete transaction" });
+    }
+
+    // Find the item
+    const item = transaction.items?.find((i) => i.sku === sku);
+    if (!item) {
+      return res.status(404).json({ message: `Item with sku '${sku}' not found in this transaction` });
+    }
+
+    // Prevent double fulfillment
+    if (item.fulfillment?.status === "fulfilled") {
+      return res.status(400).json({ message: "Item has already been fulfilled" });
+    }
+
+    // Mark fulfilled
+    item.fulfillment = {
+      status: "fulfilled",
+      fulfilledAt: new Date(),
+      fulfilledBy: req.user.email || req.user.id || "admin",
+    };
+
     await transaction.save();
 
-    return res.status(200).json({ message: 'Souvenir marked as collected', transaction });
+    return res.status(200).json({
+      message: "Item marked as fulfilled",
+      transaction,
+    });
   } catch (error) {
-    console.error('Error marking souvenir as collected:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fulfilling item:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};

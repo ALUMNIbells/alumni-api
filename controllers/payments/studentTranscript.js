@@ -1,3 +1,6 @@
+import SystemState from "../../models/systemState.js";
+import Transaction from "../../models/Transaction.js";
+
 export const requestTranscript = async (req, res) => {
     const { matricNo, fullName, email, phone, type, college, course} = req.body;
     //check for all the fields

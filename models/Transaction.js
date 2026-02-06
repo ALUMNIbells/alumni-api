@@ -1,5 +1,23 @@
 import mongoose from "mongoose";
 
+const TransactionItemSchema = new mongoose.Schema(
+  {
+    sku: { type: String, required: true },        
+    name: { type: String, required: true },       
+    unitPrice: { type: Number, required: true },
+    qty: { type: Number, default: 1, min: 1 },
+    fulfillment: {
+      status: {
+        type: String,
+        enum: ["unfulfilled", "fulfilled"],
+        default: "unfulfilled",
+      },
+      fulfilledAt: { type: Date },
+      fulfilledBy: { type: String },
+    },
+  },
+  { _id: false }
+);
 
 const TransactionSchema = new mongoose.Schema({
     matricNo : {type:String, required:true},
@@ -15,14 +33,12 @@ const TransactionSchema = new mongoose.Schema({
     type: {type:String, required:true, default: 'ALUMNI CLEARANCE DUES', enum: [
         'ALUMNI CLEARANCE DUES', 
         'ALUMNI DONATION',
-        'FAN',
-        'HOODIE',
+        'SOUVENIR_PURCHASE',
         'STUDENT TRANSCRIPT'
     ]},
     college: {type:String, required:true}, 
     course: {type:String, required:true},
-    collectedSouvenir: { type: Boolean, default: false },
-    collectedAt: { type: Date },
+    items: { type: [TransactionItemSchema], default: [] },
 },{
     timestamps: true,
 });

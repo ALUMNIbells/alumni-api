@@ -32,6 +32,8 @@
     "qrcode": "^1.5.4",
     "resend": "^4.8.0",
     "streamifier": "^0.1.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "swiftenv": "^1.0.5"
   }
 }
