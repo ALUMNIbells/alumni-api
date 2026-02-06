@@ -6,6 +6,7 @@ const AdminSchema = new mongoose.Schema({
     password: { type: String, required: true },
     resetToken: { type: String },
     resetTokenExpiry: { type: Date },
+    role: {type: String, default: 'admin', enum: ['admin', 'registrar-admin', 'super-admin']}
 }, {
     timestamps: true,
 });

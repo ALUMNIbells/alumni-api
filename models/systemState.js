@@ -8,6 +8,7 @@ const systemStateSchema = new mongoose.Schema({
   alumniDonation: Number,
   sourvenierPrice: Number,
   sourvenierPrice2: Number,
+  studentTranscript: Number
 }, { collection: 'system_state' });
 
 const SystemState = mongoose.model("SystemState", systemStateSchema);
