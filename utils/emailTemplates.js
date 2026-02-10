@@ -99,7 +99,7 @@ export const emailVerificationTemplate = (fullName, code) => {
                         color: #777;
                         "
                     >
-                        &copy; 2025 BELLSTECH ALUMNI. All rights reserved.
+                        &copy; ${new Date().getFullYear()} BELLSTECH ALUMNI. All rights reserved.
                     </td>
                     </tr>
                 </table>
@@ -212,7 +212,7 @@ export const passwordResetTemplate = ( code) => {
                         color: #777;
                         "
                     >
-                        &copy; 2025 BELLSTECH ALUMNI. All rights reserved.
+                        &copy; ${new Date().getFullYear()} BELLSTECH ALUMNI. All rights reserved.
                     </td>
                     </tr>
                 </table>
@@ -355,7 +355,7 @@ export const welcomeEmailTemplate = (fullName) => {
                         color: #777;
                         "
                     >
-                        &copy; {{YEAR}} Bells University Alumni Association. All rights
+                        &copy; ${new Date().getFullYear()} Bells University Alumni Association. All rights
                         reserved.
                     </td>
                     </tr>

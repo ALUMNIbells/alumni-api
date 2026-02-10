@@ -5,6 +5,7 @@ import cors from "cors";
 import paymentRoutes from "./routes/v1/payments.js";
 import authRoutes from "./routes/v1/auth.js";
 import systemStateRoutes from "./routes/v1/systemState.js";
+import transcriptRoutes from "./routes/v1/transcript.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
@@ -40,6 +41,7 @@ app.use(express.json());
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/system-state', systemStateRoutes);
+app.use('/api/v1/transcript', transcriptRoutes);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(5000, () =>{

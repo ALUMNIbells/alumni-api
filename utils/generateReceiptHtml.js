@@ -248,10 +248,186 @@ export async function generateReceiptHtml(transaction, paidAt, receiptNo) {
         <!-- Footer -->
         <div class="footer">Note: Keep this receipt as proof of payment.</div>
         <p class="note">Email: bellstechalumni@bellsuniversity.edu.ng</p>
-        <p class="note">© 2025 BELLSTECH ALUMNI - All rights reserved.</p>
+        <p class="note">© ${new Date().getFullYear()} BELLSTECH ALUMNI - All rights reserved.</p>
       </div>
     </body>
     </html>
+  `;
+}
+
+export async function generateTranscriptHtml(transcriptData) {
+
+  // const qrDataUrl = await QRCode.toDataURL(`https://nacos-weld.vercel.app/verified-page?ref=${paymentref}`);
+  // console.log(qrDataUrl);
+  return `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bells University – Student Transcript</title>
+
+  <style>
+    body {
+      background: #eee;
+      font-family: "Times New Roman", serif;
+      padding: 30px;
+    }
+
+    .page {
+      background: #ecf19699;
+      width: 850px;
+      margin: auto;
+      padding: 10px 60px;
+      border: 1px solid #ccc;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .header img {
+      width: 70px;
+      margin-bottom: 10px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      margin: 0;
+      letter-spacing: 1px;
+    }
+
+    .header h2 {
+      font-size: 16px;
+      margin: 5px 0 0;
+      font-weight: normal;
+    }
+
+    /* Student Info */
+    .info {
+      font-size: 15px;
+      margin-bottom: 25px;
+      line-height: 1.7;
+    }
+
+    .info span {
+      display: inline-block;
+      min-width: 200px;
+      font-weight: bold;
+    }
+
+    /* Semester title */
+    .semester-title {
+      font-weight: bold;
+      margin: 25px 0 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+    }
+
+    th {
+      text-align: center;
+      font-weight: bold;
+    }
+
+    td:nth-child(1),
+    td:nth-child(3),
+    td:nth-child(4) {
+      text-align: center;
+    }
+
+    /* Summary */
+    .summary {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    
+    <img src="https://res.cloudinary.com/dyxnndiww/image/upload/f_auto,q_auto,w_80/v1761609393/images-removebg-preview_gpu6qw.png" alt="" srcset="" style="width: 110px;height: 110px;">
+    <h1>BELLS UNIVERSITY OF TECHNOLOGY</h1>
+    <h2>STUDENT TRANSCRIPT</h2>
+  </div>
+
+  <!-- Student Info -->
+  <div class="info">
+    <div><b>MATRIC NUMBER:</b> ${transcriptData.matricNo}</div>
+    <div><b>NAME:</b> ${transcriptData?.name?.toUpperCase()}</div>
+    <div><b>DEGREE PROGRAMME:</b> ${transcriptData.department}</div>
+    <div><b>DEPARTMENT:</b> ${transcriptData.department}</div>
+    <div><b>COLLEGE:</b> ${transcriptData.college}</div>
+  </div>
+
+  ${transcriptData.semesters.map(sem => `
+    <div class="semester-title">
+      <div>${sem.semester.toUpperCase()} SEMESTER</div>
+      <div>${sem.session}</div>
+      <div>${sem.level}</div>
+    </div>
+
+    <table>
+      <tr>
+        <th>Course Code</th>
+        <th>Course Title</th>
+        <th>Unit Value</th>
+        <th>Grade Obtained</th>
+      </tr>
+      ${sem.courses.map(course => `
+        <tr>
+          <td>${course.code}</td>
+          <td>${course.title}</td>
+          <td>${course.units}</td>
+          <td>${course.score} (${course.grade})</td>
+        </tr>
+      `).join('')}
+    </table>
+
+    <div class="summary">
+      TOTAL CREDIT OFFERED: ${sem.totalCreditOffered}<br>
+      TOTAL CREDIT PASSED: ${sem.totalCreditPassed}<br>
+      SEMESTER GPA: ${sem.semesterGPA}<br>
+      ${sem.cgpa ? `CUMULATIVE GPA: ${sem.cgpa}` : ''}
+    </div>
+  `).join('')}
+
+  
+
+  <!-- Footer -->
+  <div class="footer">
+    Page 1 of 1<br>
+  </div>
+
+</div>
+
+</body>
+</html>
+
   `;
 }
 

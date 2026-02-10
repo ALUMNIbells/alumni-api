@@ -9,6 +9,7 @@ import SystemState from "../../models/systemState.js";
 import { welcomeEmailTemplate } from "../../utils/emailTemplates.js";
 import { Resend } from "resend";
 import PAYMENT_TYPES from "../../utils/paymentConfig.js";
+import { getNextReceiptNumber } from "../../utils/getNextReceiptNumber.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -67,7 +68,7 @@ export const initializePayment = async (req, res) => {
     }
 
     const split_code = PAYMENT_TYPES[type]?.splitCode || "";
-    const finalAmount = amount + 300;
+    const finalAmount = type !== "SOUVENIR_PURCHASE" ? amount + 700 + 300 : amount + 300;
 
     const paystackRes = await axios.post(
       "https://api.paystack.co/transaction/initialize",
@@ -169,6 +170,14 @@ export const VerifyPayment = async (req, res) => {
   }
 
   try {
+    const transaction = await Transaction.findOne({ paymentref: reference });
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found." });
+    }
+    if (transaction.status === "completed" && transaction.receiptNumber) {
+      return res.status(200).json({ message: "Payment already verified", data: transaction });
+    }
+
     // Verify via Paystack
     const response = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: {
@@ -180,11 +189,7 @@ export const VerifyPayment = async (req, res) => {
     console.log('Paystack Verification Response');
 
     const paymentData = response.data.data;
-    const transaction = await Transaction.findOne({ paymentref: reference });
-    if (!transaction) {
-      return res.status(404).json({ message: "Transaction not found." });
-    }
-    console.log('Transaction from DB:', transaction);
+
     const paidAt = new Date(paymentData.paid_at).toLocaleString();
     console.log(paidAt);
     console.log(Intl.DateTimeFormat().resolvedOptions());
@@ -199,10 +204,8 @@ export const VerifyPayment = async (req, res) => {
           details: `Successful payment of ${transaction.amount} for ${transaction.fullName} -${transaction.matricNo} payment for ${transaction.type}`
         });
       console.log('Generating PDF Receipt...');
-      const receipts = await Transaction.find({matricNo: transaction.matricNo, status: 'completed'})
-      //receipt number in thousands with leading zeros
-      console.log('Number of previous receipts:',  receipts.length.toString().padStart(4, '0'));
-      const pdfBuffer = await generatePdfBuffer(transaction, paidAt, receipts.length + 1);
+      const { receiptSeq, receiptNumber } = await getNextReceiptNumber();
+      const pdfBuffer = await generatePdfBuffer(transaction, paidAt, receiptNumber);
 
       // Upload to Cloudinary
       const upload = await new Promise((resolve, reject) => {
@@ -222,7 +225,12 @@ export const VerifyPayment = async (req, res) => {
       // Update DB
       const tx = await Transaction.findOneAndUpdate(
         { paymentref: reference },
-        { status: "completed", paidAt: new Date(paymentData.paid_at), receiptUrl: upload.secure_url },
+        { status: "completed", 
+          paidAt: new Date(paymentData.paid_at), 
+          receiptUrl: upload.secure_url, 
+          receiptSeq, 
+          receiptNumber
+        },
         { new: true }
       );
 
@@ -271,13 +279,64 @@ export const VerifyPayment = async (req, res) => {
     return res.status(500).json({ message: "Payment verification failed" });
   }
 };
+export const reVerifyPaymentMass = async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ status: "completed" });
+      for (const transaction of transactions) {
+        if (transaction.status === "completed" && transaction.receiptNumber) {
+          console.log(`Skipping already verified transaction: ${transaction.paymentref}`);
+          continue;
+        }
+        const { receiptSeq, receiptNumber } = await getNextReceiptNumber();
+        const pdfBuffer = await generatePdfBuffer(transaction, transaction.paidAt, receiptNumber);
+
+        // Upload to Cloudinary
+        const upload = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              resource_type: "raw",
+              folder: "receipts",
+              public_id: `${transaction.paymentref}.pdf`,
+            },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          streamifier.createReadStream(pdfBuffer).pipe(stream);
+        });
+        // Update DB
+        const tx = await Transaction.findOneAndUpdate(
+          { paymentref: transaction.paymentref },
+          {
+            receiptUrl: upload.secure_url, 
+            receiptSeq, 
+            receiptNumber
+          },
+          { new: true }
+        );
+        console.log(`Re-verified transaction: ${transaction.paymentref}`);
+      }
+    } catch (err) {
+      console.error("Mass Re-Verification Error:", err.response?.data || err.message);
+      return res.status(500).json({ message: "Mass re-verification failed" });
+    }
+};
 
 export const getAllTransactions = async (req, res) => {
   try {
     if(req.user.role !== 'admin'){
       return res.status(403).json({ message: 'Unauthorized' });
     }
+    if(req.query.type){
+      const validTypes = Object.keys(PAYMENT_TYPES);
+      if(!validTypes.includes(req.query.type)){
+        return res.status(400).json({ message: 'Invalid type query parameter' });
+      }
     const transactions = await Transaction.find({type: req.query.type, status: 'completed'}).sort({ createdAt: -1 });
+    return res.status(200).json(transactions);
+    }
+    const transactions = await Transaction.find({status: 'completed'}).sort({ createdAt: -1 });
     return res.status(200).json(transactions);
   } catch (error) {
     console.error('Error fetching transactions:', error);

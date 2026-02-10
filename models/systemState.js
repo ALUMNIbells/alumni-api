@@ -17,7 +17,11 @@ const systemStateSchema = new mongoose.Schema({
       price: { type: Number, default: 0 },
       active: { type: Boolean, default: true }
     }
-  ]
+  ],
+  
+  counters: {
+    receipt: { type: Number, default: 0 },
+  }
 }, { collection: "system_state" });
 
 const SystemState = mongoose.model("SystemState", systemStateSchema);

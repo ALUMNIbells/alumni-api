@@ -15,7 +15,7 @@ export const SignUp = async (req, res, next) => {
     const hash = bcrypt.hashSync(req.body.password, salt);
     const user = await Student.findOne({email: req.body.email}); 
     if (user) {
-        return res.status(400).json({message: 'User already exists'});
+        return res.status(400).json({message: 'User already exists'}); 
     }
     const transaction = await Transaction.findOne({
         email: req.body.email, 

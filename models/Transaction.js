@@ -39,6 +39,8 @@ const TransactionSchema = new mongoose.Schema({
     college: {type:String, required:true}, 
     course: {type:String, required:true},
     items: { type: [TransactionItemSchema], default: [] },
+    receiptSeq: { type: Number },
+    receiptNumber: { type: String }
 },{
     timestamps: true,
 });
