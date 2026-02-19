@@ -69,18 +69,22 @@ export const initializePayment = async (req, res) => {
 
     const split_code = PAYMENT_TYPES[type]?.splitCode || "";
     const finalAmount = type !== "SOUVENIR_PURCHASE" ? amount + 700 + 300 : amount + 300;
+    const isTest = getEnv("PAYSTACK_SECRET_KEY").startsWith("sk_test");
+    const payload = {
+      email,
+      name: fullName,
+      amount: Math.round(finalAmount * 100),
+      reference: `${matricNo}-${Date.now()}`,
+      metadata: { matricNo, fullName, email, phone, type, college, course },
+      callback_url: getEnv("CALLBACK_URL"),
+    };
+    if (!isTest && split_code) {
+      payload.split_code = split_code;
+    }
 
     const paystackRes = await axios.post(
       "https://api.paystack.co/transaction/initialize",
-      {
-        email,
-        name: fullName,
-        amount: Math.round(finalAmount * 100),
-        reference: `${matricNo}-${Date.now()}`,
-        split_code,
-        metadata: { matricNo, fullName, email, phone, type, college, course },
-        callback_url: getEnv("CALLBACK_URL"),
-      },
+      payload,
       {
         headers: {
           Authorization: `Bearer ${getEnv("PAYSTACK_SECRET_KEY")}`,
