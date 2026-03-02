@@ -35,6 +35,8 @@ const TranscriptSchema = new mongoose.Schema(
     department: { type: String, required: true },
     college: { type: String, required: true },
     semesters: { type: [semesterSchema], default: [] },
+    status: { type: String, enum: ["pending", "approved", "rejected", "added"], default: "added" },
+    requestLetterUrl: { type: String },
     transcriptUrl: { type: String },
   },
   { timestamps: true }

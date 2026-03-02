@@ -1,12 +1,13 @@
 
-import cloudinary from "../../utils/cloudinary.js";
+import cloudinary from "../../../utils/cloudinary.js";
 import streamifier from "streamifier";
-import Student from "../../models/Student.js";
-import Transaction from "../../models/Transaction.js";
-import Transcript from "../../models/Transcript.js";
-import { generateTranscriptPdfBuffer } from "../../utils/generatePdfBuffer.js";
+import Student from "../../../models/Student.js";
+import Transaction from "../../../models/Transaction.js";
+import Transcript from "../../../models/Transcript.js";
+import { generateRequestLetterPdfBuffer, generateTranscriptPdfBuffer } from "../../../utils/generatePdfBuffer.js";
 import { listEnv } from "swiftenv";
 import { Resend } from "resend";
+import { uploadFile } from "../../../utils/upload.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -78,51 +79,53 @@ export const requestTranscript = async (req, res) => {
     try {
         const transaction = await Transaction.findOne({ matricNo, type: 'STUDENT TRANSCRIPT', status: 'completed' });
         if (!transaction) {
-            return res.status(400).json({ message: "No completed transcript payment found for this matricNo, please pay for transcript" });
+          return res.status(400).json({ message: "No completed transcript payment found for this matricNo, please pay for transcript" });
         }
 
         const transcript = await Transcript.findOne({ matricNo });
         if (!transcript) {
-            return res.status(404).json({ message: "Transcript not found, please contact support" });
+          return res.status(404).json({ message: "Transcript not found, please contact support" });
         }
         console.log(transcript)
+        const student = await Student.findOne({ matricNo });
+        if (!student) {
+          return res.status(404).json({ message: "Student not found, please contact support" });
+        }
 
-        const pdfBuffer = await generateTranscriptPdfBuffer(transcript);
+        if(transcript.status === "pending" && transcript.requestLetterUrl){
+          return res.status(400).json({ message: "Transcript request is already pending approval", requestLetterUrl: transcript.requestLetterUrl });
+        }
+
+        if(transcript.status === "approved" && transcript.transcriptUrl){
+          return res.status(400).json({ message: "Transcript request is already approved", transcriptUrl: transcript.transcriptUrl });
+        }
         
-        // Upload to Cloudinary
-        const upload = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              resource_type: "raw",
-              folder: "receipts",
-              public_id: `${transcript.matricNo}-student-transcript.pdf`,
-            },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-          streamifier.createReadStream(pdfBuffer).pipe(stream);
-        });
-
-        transcript.transcriptUrl = upload.secure_url;
+        
+        const requestLetterpdf = await generateRequestLetterPdfBuffer(student);
+        
+        const requestLetterUrl = await uploadFile(
+          "student-transcripts-request-letters",
+          `${transcript.matricNo}-student-request-letter.pdf`,
+          requestLetterpdf);
+        transcript.requestLetterUrl = requestLetterUrl.secure_url;
+        transcript.status = "pending";
 
         await transcript.save();
 
         const { data, error } = await resend.emails.send({
             from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-            to: 'victorexpounder@gmail.com',
-            subject: 'Student Transcript',
+            to: student.email,
+            subject: 'Student Transcript Request Received',
             html: `<p>Dear ${transcript.name},</p>
-            <p>Your student transcript is ready. If you can't find it attached to this email, You can download it using the link below:</p>
-            <a href="${upload.secure_url}" target="_blank">Download Transcript</a>
+            <p>Your student transcript request has been received and is being processed. You can download your transcript request letter attached or access it by clicking the link below:</p>
+            <a href="${requestLetterUrl.secure_url}" target="_blank">Download Request Letter</a>
             <p>If you have any questions, please contact support.</p>
             <p>Best regards,<br>Bells University Alumni Association</p>
             <p><a href="https://bellsuniversityalumni.com">https://bellsuniversityalumni.com</a></p>`,
             attachments: [
               {
-                filename: `${transcript.matricNo}-student-transcript.pdf`,
-                content: pdfBuffer,
+                filename: `${transcript.matricNo}-student-request-letter.pdf`,
+                content: requestLetterpdf,
                 contentType: 'application/pdf'
               }
             ]
@@ -134,10 +137,7 @@ export const requestTranscript = async (req, res) => {
   
         console.log({ data });
 
-        return res.status(200).json({ message: "Transcript generated successfully", transcriptUrl: upload.secure_url });
-
-        
-
+        return res.status(200).json({ message: "Transcript request sent successfully", requestLetterUrl: requestLetterUrl.secure_url });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });

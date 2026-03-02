@@ -431,3 +431,178 @@ export async function generateTranscriptHtml(transcriptData) {
   `;
 }
 
+export async function generateRequestLetterHtml(data) {
+  return `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Transcript Application Letter</title>
+
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 50px 0;
+    }
+
+    .page {
+      width: 700px;
+      margin: auto;
+      background: #ffffff;
+      padding: 80px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      line-height: 1.6;
+      color: #000;
+    }
+
+    .sender-address {
+      margin-bottom: 40px;
+    }
+
+    .date {
+      margin-bottom: 40px;
+    }
+
+    .receiver-address {
+      margin-bottom: 30px;
+    }
+
+    .subject {
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+      text-decoration: underline;
+    }
+
+    .salutation {
+      margin-bottom: 20px;
+    }
+
+    .body-paragraph {
+      margin-bottom: 20px;
+      text-align: justify;
+    }
+
+    .details {
+      margin: 20px 0;
+    }
+
+    .details p {
+      margin: 5px 0;
+    }
+
+    .closing {
+      margin-top: 30px;
+    }
+
+    .signature {
+      margin-top: 35px;
+    }
+
+    @media print {
+      body {
+        background: none;
+      }
+
+      .page {
+        box-shadow: none;
+        width: 100%;
+        padding: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="page">
+
+  <!-- Sender Address -->
+  <!-- <div class="sender-address">
+    <strong>${data.fullName}</strong><br>
+    Matriculation Number: ${data.matricNo}<br>
+    Department of ${data.course}<br>
+    ${data.college}<br>
+    Bells University of Technology<br>
+    Ota, Ogun State<br>
+    Nigeria
+  </div> -->
+
+  <!-- Date -->
+  <!-- <div class="date">
+    ${new Date().toLocaleDateString("en-NG", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Africa/Lagos",
+    })}
+  </div> -->
+
+  <!-- Receiver Address -->
+  <div class="receiver-address">
+    The Registrar,<br>
+    Bells University of Technology,<br>
+    Ota, Ogun State,<br>
+    Nigeria.
+  </div>
+
+  <!-- Subject -->
+  <div class="subject">
+    Request for Issuance of Student Copy of Academic Transcript
+  </div>
+
+  <!-- Salutation -->
+  <div class="salutation">
+    Dear Sir/Madam,
+  </div>
+
+  <!-- Body -->
+  <div class="body-paragraph">
+    I respectfully write to formally request the issuance of my academic transcript (Student Copy).
+  </div>
+
+  <div class="body-paragraph">
+    I have duly completed my academic programme in the Department of ${data.course} under the College ${data.college}. The prescribed transcript processing fee has been fully paid in accordance with the University’s regulations.
+  </div>
+
+  <div class="body-paragraph">
+    For ease of reference, my details are provided below:
+  </div>
+
+  <!-- Student Details -->
+  <div class="details">
+    <p><strong>Full Name:</strong> ${data.fullName}</p>
+    <p><strong>Matriculation Number:</strong> ${data.matricNo.slice(0, 4)}/${data.matricNo.slice(4)}</p>
+    <p><strong>College:</strong> ${data.college}</p>
+    <p><strong>Department:</strong> ${data.course}</p>
+    <p><strong>Programme:</strong> Bachelor of Science (B.Sc.) ${data.course}</p>
+  </div>
+
+  <div class="body-paragraph">
+    I kindly request that the Student Copy of my academic transcript be processed and made available for collection at your earliest convenience.
+  </div>
+
+  <div class="body-paragraph">
+    Thank you for your attention to this request.
+  </div>
+
+  <!-- Closing -->
+  <div class="closing">
+    Yours faithfully,
+  </div>
+
+  <div class="signature">
+    <strong>${data.fullName}</strong><br>
+    Phone: ${data.phone}<br>
+    Email: ${data.email}
+  </div>
+
+</div>
+
+</body>
+</html>
+  `
+  
+}

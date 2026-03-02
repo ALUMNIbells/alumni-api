@@ -1,8 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { createError } from './error.js';
 
-
-
 const verifyTken = (req, res, next) =>{
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];

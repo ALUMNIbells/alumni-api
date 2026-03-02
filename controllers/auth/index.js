@@ -166,6 +166,7 @@ export const AddAdmin = async (req, res, next) => {
     return res.status(200).json({message: 'User created successfully'});
 
 }
+
 export const AdminSignIn = async (req, res, next) => {
     const user = await Admin.findOne({email: req.body.email});
     if (!user) {
