@@ -177,7 +177,9 @@ export const AdminSignIn = async (req, res, next) => {
         return res.status(400).json({message: 'Invalid password'});
     }
     const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: user.role}, process.env.JWT_SECRET);
-    return res.status(200).json({token, user: {id: user._id, fullName: user.fullName, email: user.email}});
+    return res.status(200).json({
+        token, 
+        user: {id: user._id, fullName: user.fullName, email: user.email, role: user.role}});
 }
 
 export const DeleteAdmin = async (req, res, next) => {
