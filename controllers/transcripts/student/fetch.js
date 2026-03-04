@@ -2,6 +2,9 @@ import Transcript from "../../../models/Transcript.js";
 
 export const getAllTranscripts = async (req, res) => {
     try {
+        if(req.user.role !== "registrar-admin" && req.user.role !== "admin"){ 
+            return res.status(403).json({ message: "You are not authorized to perform this action" });
+        }
         const transcripts = await Transcript.find();
         return res.status(200).json({ message: "Transcripts retrieved successfully", data: transcripts });
     } catch (error) {
@@ -12,6 +15,9 @@ export const getAllTranscripts = async (req, res) => {
 
 export const getAllPendingTranscripts = async (req, res) => {
     try {
+        if(req.user.role !== "registrar-admin" && req.user.role !== "admin"){ 
+            return res.status(403).json({ message: "You are not authorized to perform this action" });
+        }
         const transcripts = await Transcript.find({ status: "pending" });
         return res.status(200).json({ message: "Pending transcripts retrieved successfully", data: transcripts });
     } catch (error) {
@@ -22,6 +28,9 @@ export const getAllPendingTranscripts = async (req, res) => {
 
 export const getAllApprovedTranscripts = async (req, res) => {
     try {
+        if(req.user.role !== "registrar-admin" && req.user.role !== "admin"){ 
+            return res.status(403).json({ message: "You are not authorized to perform this action" });
+        }
         const transcripts = await Transcript.find({ status: "approved" });
         return res.status(200).json({ message: "Approved transcripts retrieved successfully", data: transcripts });
     } catch (error) {
@@ -32,6 +41,9 @@ export const getAllApprovedTranscripts = async (req, res) => {
 
 export const getAllRejectedTranscripts = async (req, res) => {
     try {
+        if(req.user.role !== "registrar-admin" && req.user.role !== "admin"){ 
+            return res.status(403).json({ message: "You are not authorized to perform this action" });
+        }
         const transcripts = await Transcript.find({ status: "rejected" });
         return res.status(200).json({ message: "Rejected transcripts retrieved successfully", data: transcripts });
     } catch (error) {

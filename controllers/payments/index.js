@@ -68,7 +68,7 @@ export const initializePayment = async (req, res) => {
     }
 
     const split_code = PAYMENT_TYPES[type]?.splitCode || "";
-    const finalAmount = type !== "SOUVENIR_PURCHASE" ? amount + 700 + 300 : amount + 300;
+    const finalAmount = amount + (PAYMENT_TYPES[type]?.addition || 0);
     const isTest = getEnv("PAYSTACK_SECRET_KEY").startsWith("sk_test");
     const payload = {
       email,
