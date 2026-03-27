@@ -32,6 +32,9 @@ const TransactionSchema = new mongoose.Schema({
     paidAt: {type: Date},
     type: {type:String, required:true, default: 'ALUMNI CLEARANCE DUES', enum: [
         'ALUMNI CLEARANCE DUES', 
+        'ALUMNI CLEARANCE DUES - MSC', 
+        'ALUMNI CLEARANCE DUES - PGD', 
+        'ALUMNI CLEARANCE DUES - PHD', 
         'ALUMNI DONATION',
         'SOUVENIR_PURCHASE',
         'STUDENT TRANSCRIPT'

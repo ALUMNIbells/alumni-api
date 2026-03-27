@@ -17,9 +17,12 @@ router.post('/', verifyTken,  async(req, res)=>{
         const doc = await SystemState.create({
             currentSession: "2025/2026",
             fees:{
-                alumniDues: 20700,
-                alumniDonation: 1700,
-                studentTranscript: 0
+                alumniDues: 20000,
+                alumniDuesMsc: 20000,
+                alumniDuesPhd: 20000,
+                alumniDuesPgd: 20000,
+                alumniDonation: 2000,
+                studentTranscript: 15000
             },
             souvenirs: []
         })
@@ -46,6 +49,9 @@ router.patch('/', verifyTken, async (req, res)=>{
         if (currentSession) systemState.currentSession = currentSession;
         if (fees){
             systemState.fees.alumniDues = fees.alumniDues || systemState.fees.alumniDues;
+            systemState.fees.alumniDuesMsc = fees.alumniDuesMsc || systemState.fees.alumniDuesMsc;
+            systemState.fees.alumniDuesPhd = fees.alumniDuesPhd || systemState.fees.alumniDuesPhd;
+            systemState.fees.alumniDuesPgd = fees.alumniDuesPgd || systemState.fees.alumniDuesPgd;
             systemState.fees.alumniDonation = fees.alumniDonation || systemState.fees.alumniDonation;
             systemState.fees.studentTranscript = fees.studentTranscript || systemState.fees.studentTranscript;
         }

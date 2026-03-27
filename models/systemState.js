@@ -6,6 +6,9 @@ const systemStateSchema = new mongoose.Schema({
 
   fees: {
     alumniDues: Number,
+    alumniDuesMsc: Number,
+    alumniDuesPhd: Number,
+    alumniDuesPgd: Number,
     alumniDonation: Number,
     studentTranscript: Number,
   },
