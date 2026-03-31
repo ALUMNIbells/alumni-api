@@ -10,6 +10,7 @@ import { welcomeEmailTemplate } from "../../utils/emailTemplates.js";
 import { Resend } from "resend";
 import PAYMENT_TYPES from "../../utils/paymentConfig.js";
 import { getNextReceiptNumber } from "../../utils/getNextReceiptNumber.js";
+import Student from "../../models/Student.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
@@ -238,7 +239,13 @@ export const VerifyPayment = async (req, res) => {
         { new: true }
       );
 
-      if(transaction.type === 'ALUMNI CLEARANCE DUES') {
+      const studentexists = await Student.findOne({ matricNo: transaction.matricNo });
+
+      if((transaction.type === 'ALUMNI CLEARANCE DUES'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - MSC'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - PGD'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - PHD') && !studentexists
+        ) {
         const { data, error } = await resend.emails.send({
             from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
             to: transaction.email,

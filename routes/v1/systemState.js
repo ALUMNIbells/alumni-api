@@ -21,7 +21,7 @@ router.post('/', verifyTken,  async(req, res)=>{
                 alumniDuesMsc: 20000,
                 alumniDuesPhd: 20000,
                 alumniDuesPgd: 20000,
-                alumniDonation: 2000,
+                alumniDonation: 1000,
                 studentTranscript: 15000
             },
             souvenirs: []

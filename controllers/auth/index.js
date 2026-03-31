@@ -19,7 +19,12 @@ export const SignUp = async (req, res, next) => {
     }
     const transaction = await Transaction.findOne({
         email: req.body.email, 
-        type: { $in: ['ALUMNI CLEARANCE DUES', 'ALUMNI DONATION'] },
+        type: { $in: 
+            ['ALUMNI CLEARANCE DUES',
+             'ALUMNI CLEARANCE DUES - MSC', 
+             'ALUMNI CLEARANCE DUES - PGD', 
+             'ALUMNI CLEARANCE DUES - PHD', 
+             'ALUMNI DONATION'] },
         status: 'completed'
     });
     if(!transaction){
