@@ -33,6 +33,9 @@ const TransactionSchema = new mongoose.Schema({
     type: {type:String, required:true, default: 'ALUMNI CLEARANCE DUES', enum: [
         'ALUMNI CLEARANCE DUES', 
         'ALUMNI CLEARANCE DUES - MSC', 
+        'ALUMNI CLEARANCE DUES - M. ENG', 
+        'ALUMNI CLEARANCE DUES - M. PHIL', 
+        'ALUMNI CLEARANCE DUES - MBA', 
         'ALUMNI CLEARANCE DUES - PGD', 
         'ALUMNI CLEARANCE DUES - PHD', 
         'ALUMNI DONATION',
