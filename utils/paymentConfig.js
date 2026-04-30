@@ -27,6 +27,27 @@ const PAYMENT_TYPES = {
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
+  "ALUMNI CLEARANCE DUES - M. ENG": {
+    amountKey: "alumniDues",
+    splitCode: "SPL_qb31b7ThqX",
+    uniqueCompleted: true,
+    onSuccess: ["sendWelcomeEmail"],
+    addition: 1000
+  },
+  "ALUMNI CLEARANCE DUES - M. PHIL": {
+    amountKey: "alumniDues",
+    splitCode: "SPL_qb31b7ThqX",
+    uniqueCompleted: true,
+    onSuccess: ["sendWelcomeEmail"],
+    addition: 1000
+  },
+  "ALUMNI CLEARANCE DUES - MBA": {
+    amountKey: "alumniDues",
+    splitCode: "SPL_qb31b7ThqX",
+    uniqueCompleted: true,
+    onSuccess: ["sendWelcomeEmail"],
+    addition: 1000
+  },
   "ALUMNI DONATION": {
     amountKey: "alumniDonation",
     splitCode: "SPL_Yz4usMsAJz",

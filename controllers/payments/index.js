@@ -244,6 +244,9 @@ export const VerifyPayment = async (req, res) => {
       if((transaction.type === 'ALUMNI CLEARANCE DUES'
          || transaction.type === 'ALUMNI CLEARANCE DUES - MSC'
          || transaction.type === 'ALUMNI CLEARANCE DUES - PGD'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - M. ENG'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - M. PHIL'
+         || transaction.type === 'ALUMNI CLEARANCE DUES - MBA'
          || transaction.type === 'ALUMNI CLEARANCE DUES - PHD') && !studentexists
         ) {
         const { data, error } = await resend.emails.send({

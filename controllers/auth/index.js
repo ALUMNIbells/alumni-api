@@ -23,7 +23,10 @@ export const SignUp = async (req, res, next) => {
             ['ALUMNI CLEARANCE DUES',
              'ALUMNI CLEARANCE DUES - MSC', 
              'ALUMNI CLEARANCE DUES - PGD', 
-             'ALUMNI CLEARANCE DUES - PHD', 
+             'ALUMNI CLEARANCE DUES - PHD',
+             'ALUMNI CLEARANCE DUES - MBA',
+             'ALUMNI CLEARANCE DUES - M. ENG', 
+             'ALUMNI CLEARANCE DUES - M. PHIL',   
              'ALUMNI DONATION'] },
         status: 'completed'
     });
