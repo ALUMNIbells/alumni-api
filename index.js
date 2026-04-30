@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 import cors from "cors";
 import paymentRoutes from "./routes/v1/payments.js";
 import authRoutes from "./routes/v1/auth.js";
-import systemStateRoutes from "./routes/v1/systemState.js";
-import transcriptRoutes from "./routes/v1/transcript.js";
+import { errorHandler } from "./middleware/errorHandler.js";
+
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
@@ -23,8 +23,7 @@ const connectDB = async () => {
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:5500',
-  'https://www.bellsuniversityalumni.com',
-  'https://bellstechalumni-git-testing-ablesaxs-projects.vercel.app'
+
 ];
 
 app.use(cors({
@@ -41,9 +40,10 @@ app.use(cors({
 app.use(express.json()); 
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/system-state', systemStateRoutes);
-app.use('/api/v1/transcript', transcriptRoutes);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Global error handler - MUST be last
+app.use(errorHandler);
 
 app.listen(5000, () =>{
     console.log("Server started on port 5000")

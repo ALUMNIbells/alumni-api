@@ -1,312 +1,857 @@
-import Student from "../../models/Student.js";
-import Transaction from "../../models/Transaction.js";
+
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { getEnv, listEnv } from "swiftenv";
-import Admin from "../../models/Admin.js";
-import { emailVerificationTemplate, passwordResetTemplate } from "../../utils/emailTemplates.js";
+import { createError } from "../../error.js";
+import { Customer, Courier, Staff, Admin, SuperAdmin } from "../../models/User.js";
+import { get } from "mongoose";
 
-const {RESEND_API_KEY} = listEnv();
-const resend = new Resend(RESEND_API_KEY); 
+const { RESEND_API_KEY, JWT_SECRET, JWT_EXPIRES_IN } = listEnv();
+const resend = new Resend(RESEND_API_KEY);
 
+// Helper function to get user model by type
+const getUserModel = (userType) => {
+  const models = {
+    customer: Customer,
+    courier: Courier,
+    staff: Staff,
+    admin: Admin,
+    super_admin: SuperAdmin,
+  };
+  return models[userType];
+};
+
+// Helper function to find user across all models
+const findUserByEmail = async (email) => {
+  const models = [Customer, Courier, Staff, Admin, SuperAdmin];
+  for (const Model of models) {
+    const user = await Model.findOne({ email: email.toLowerCase() });
+    if (user) return user;
+  }
+  return null;
+};
+
+// Helper function to delete user across all models
+const deleteUser = async (userId) => {
+  const models = [Customer, Courier, Staff, Admin, SuperAdmin];
+  for (const Model of models) {
+    await Model.deleteOne({ _id: userId });
+  }
+};
+
+// Helper function to generate tokens
+const generateTokens = (userId, userType) => {
+  const token = jwt.sign({ userId, userType }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN || "7d",
+  });
+  return token;
+};
+
+// Helper function to send verification email
+const sendVerificationEmail = async (email, token, fullName) => {
+  try {
+    const verificationLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${token}`;
+    
+    await resend.emails.send({
+      from: "ShipGate <noreply@notifications.shipgate.ng>",
+      to: email,
+      subject: "Verify your Shipgate account",
+      html: `
+        <h2>Welcome to Shipgate, ${fullName}!</h2>
+        <p>Please verify your email address by clicking the link below:</p>
+        <a href="${verificationLink}">Verify Email</a>
+        <p>This link will expire in 24 hours.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    throw error;
+  }
+};
+
+// Helper function to send password reset email
+const sendPasswordResetEmail = async (email, token, fullName) => {
+  try {
+    const resetLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+    
+    await resend.emails.send({
+      from: "ShipGate <noreply@notifications.shipgate.ng>",
+      to: email,
+      subject: "Reset your Shipgate password",
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>Hi ${fullName},</p>
+        <p>We received a request to reset your password. Click the link below to reset it:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    throw error;
+  }
+};
+
+// SIGNUP - Customer only
 export const SignUp = async (req, res, next) => {
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(req.body.password, salt);
-    const user = await Student.findOne({email: req.body.email}); 
-    if (user) {
-        return res.status(400).json({message: 'User already exists'}); 
-    }
-    const transaction = await Transaction.findOne({
-        email: req.body.email, 
-        type: { $in: 
-            ['ALUMNI CLEARANCE DUES',
-             'ALUMNI CLEARANCE DUES - MSC', 
-             'ALUMNI CLEARANCE DUES - PGD', 
-             'ALUMNI CLEARANCE DUES - PHD', 
-             'ALUMNI DONATION'] },
-        status: 'completed'
-    });
-    if(!transaction){
-        return res.status(400).json({message: 'No payment record found for this email. Please complete your payment before signing up.'});
-    }
-    let token, tokenExpiry;
-    //generate verification token and send email (omitted for brevity)
-    token = Math.floor(100000 + Math.random() * 900000).toString();
-    tokenExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      address,
+      password,
+      confirmPassword,
+    } = req.body;
 
-    const newUser = new Student({
-        matricNo: transaction.matricNo,
-        fullName: transaction.fullName,
-        email: transaction.email,
-        phone: transaction.phone,
-        college: transaction.college,
-        course: transaction.course,
-        password: hash,
-        token,
-        tokenExpiry
-    });
-    await newUser.save();
-
-
-    const { data, error } = await resend.emails.send({
-        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-        to: req.body.email,
-        subject: 'Verify your email address',
-        html: emailVerificationTemplate(transaction.fullName, token),
-    });
-
-    if (error) {
-        return console.error({ error });
+    // Validation
+    if (!fullName || !email || !phone || !address || !password || !confirmPassword) {
+      return next(createError(400, "Please provide all required fields"));
     }
 
-    console.log({ data });
+    if (password !== confirmPassword) {
+      return next(createError(400, "Passwords do not match"));
+    }
 
-    return res.status(200).json({message: 'User created successfully'});
-}
+    if (password.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
+    }
 
+    // Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return next(createError(409, "Email already registered"));
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate verification token
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const newCustomer = new Customer({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      address,
+      password: hashedPassword,
+      userType: "customer",
+      verificationToken,
+      verificationTokenExpiry,
+      verified: false,
+    });
+
+    await newCustomer.save();
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken, fullName);
+
+    res.status(201).json({
+      success: true,
+      message: "Account created successfully. Please check your email to verify your account.",
+      userId: newCustomer._id,
+      userType: "customer",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// SIGNIN - Generic login for all user types
 export const SignIn = async (req, res, next) => {
-    const user = await Student.findOne({email: req.body.email});
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return next(createError(400, "Please provide email and password"));
+    }
+
+    const user = await findUserByEmail(email);
     if (!user) {
-        return res.status(404).json({message: 'User not found'});
+      return next(createError(401, "Invalid email or password"));
     }
-    if(!user.verified) {
-        return res.status(401).json({message: 'Email not verified'});
+
+    // Check if user is verified
+    if (!user.verified) {
+      return next(
+        createError(403, "Please verify your email before logging in")
+      );
     }
-    const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
-    if (!isPasswordCorrect) {
-        return res.status(400).json({message: 'Invalid password'});
+
+    // Check if user is active
+    if (!user.isActive) {
+      return next(createError(403, "Your account has been deactivated"));
     }
-    const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: 'student'}, process.env.JWT_SECRET, {expiresIn: '1d'});
-    return res.status(200).json({token, user: {
-        id: user._id, 
-        fullName: user.fullName, 
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return next(createError(401, "Invalid email or password"));
+    }
+
+    // Generate JWT token
+    const token = generateTokens(user._id, user.userType);
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Remove password from response
+    user.password = undefined;
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
         email: user.email,
+        userType: user.userType,
         phone: user.phone,
-        college: user.college,
-        matricNo: user.matricNo,
-        course: user.course
-    }});
-}
+        verified: user.verified,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
+// VERIFY EMAIL
 export const VerifyEmail = async (req, res, next) => {
-    const { email, token } = req.body;
-    const user = await Student.findOne({email});
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
-    }
-    if (user.verified) {
-        return res.status(400).json({message: 'Email already verified'});
-    }
-    if (user.token !== token) {
-        return res.status(400).json({message: 'Invalid token'});
-    }
-    if (user.tokenExpiry < Date.now()) {
-        return res.status(400).json({message: 'Token expired'});
-    }
-    user.verified = true;
-    user.token = null;
-    user.tokenExpiry = null;
-    await user.save();
-    return res.status(200).json({message: 'Email verified successfully'});
-}
+  try {
+    const { token } = req.body;
 
-export const ResendVerificationToken = async (req, res, next) => {
+    if (!token) {
+      return next(createError(400, "Verification token is required"));
+    }
+
+    // Verify token
+    let decoded;
     try {
-        const { email } = req.body;
-        const user = await Student.findOne({email});
-        if (!user) {
-            return res.status(404).json({message: 'User not found'});
-        }
-        if (user.verified) {
-            return res.status(400).json({message: 'Email already verified'});
-        }
-        const token = Math.floor(100000 + Math.random() * 900000).toString();
-        const tokenExpiry = Date.now() + 5 * 60 * 1000; // 30 minutes from now
-        user.token = token;
-        user.tokenExpiry = tokenExpiry;
-        await user.save();
-
-        const { data, error } = await resend.emails.send({
-            from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-            to: email,
-            subject: 'Verify your email address',
-            html: emailVerificationTemplate(user.fullName, token),
-        });
-
-        if (error) {
-            return console.error({ error });
-        }
-
-        console.log({ data });
-
-        return res.status(200).json({message: 'Verification token resent successfully'});
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({message: 'Internal server error'});
+      return next(createError(400, "Invalid or expired verification token"));
     }
-    
-}
 
-export const AddAdmin = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
-        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    // Find user by email
+    const user = await findUserByEmail(decoded.email);
+    if (!user) {
+      return next(createError(404, "User not found"));
     }
-    if(!req.body.email || !req.body.password || !req.body.fullName){
-        return res.status(400).json({message: 'Missing required fields.'});
+
+    if (user.verified) {
+      return next(createError(400, "Email already verified"));
     }
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(req.body.password, salt);
-    const user = await Admin.findOne({email: req.body.email}); 
-    if (user) {
-        return res.status(400).json({message: 'User already exists'});
+
+    // Check token expiry
+    if (user.verificationTokenExpiry < new Date()) {
+      return next(createError(400, "Verification token has expired"));
     }
-    
-    const newUser = new Admin({
-       ...req.body,
-        password: hash,
+
+    // Update user
+    user.verified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpiry = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully. You can now login.",
     });
-    await newUser.save();
+  } catch (error) {
+    next(error);
+  }
+};
 
-    return res.status(200).json({message: 'User created successfully'});
+// RESEND VERIFICATION TOKEN
+export const ResendVerificationToken = async (req, res, next) => {
+  try {
+    const { email } = req.body;
 
-}
+    if (!email) {
+      return next(createError(400, "Email is required"));
+    }
 
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+
+    if (user.verified) {
+      return next(createError(400, "Email already verified"));
+    }
+
+    // Generate new verification token
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+    user.verificationToken = verificationToken;
+    user.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken, user.fullName);
+
+    res.status(200).json({
+      success: true,
+      message: "Verification token sent to your email",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PASSWORD RESET - SEND
+export const PasswordResetSend = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return next(createError(400, "Email is required"));
+    }
+
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign({ email, purpose: "password_reset" }, JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    // Send password reset email
+    await sendPasswordResetEmail(email, resetToken, user.fullName);
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset link sent to your email",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PASSWORD RESET - VERIFY & UPDATE
+export const PasswordResetVerify = async (req, res, next) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!token || !newPassword || !confirmPassword) {
+      return next(
+        createError(400, "Token, new password, and confirm password are required")
+      );
+    }
+
+    if (newPassword !== confirmPassword) {
+      return next(createError(400, "Passwords do not match"));
+    }
+
+    if (newPassword.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
+    }
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.purpose !== "password_reset") {
+        return next(createError(400, "Invalid token"));
+      }
+    } catch (error) {
+      return next(createError(400, "Invalid or expired reset token"));
+    }
+
+    const user = await findUserByEmail(decoded.email);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+
+    // Check if reset token matches
+    if (user.resetToken !== token) {
+      return next(createError(400, "Invalid reset token"));
+    }
+
+    // Check token expiry
+    if (user.resetTokenExpiry < new Date()) {
+      return next(createError(400, "Reset token has expired"));
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    user.password = hashedPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can now login with your new password.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========== ADMIN OPERATIONS ==========
+
+// ADMIN SIGNIN - For admin and super admin only
 export const AdminSignIn = async (req, res, next) => {
-    const user = await Admin.findOne({email: req.body.email});
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
-    }
-    const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
-    if (!isPasswordCorrect) {
-        return res.status(400).json({message: 'Invalid password'});
-    }
-    const token = jwt.sign({id: user._id, email: user.email, fullName: user.fullName, role: user.role}, process.env.JWT_SECRET);
-    return res.status(200).json({
-        token, 
-        user: {id: user._id, fullName: user.fullName, email: user.email, role: user.role}});
-}
+  try {
+    const { email, password } = req.body;
 
-export const DeleteAdmin = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
-        return res.status(403).json({message: 'You are not authorized to perform this action'});
+    if (!email || !password) {
+      return next(createError(400, "Please provide email and password"));
     }
-    const { adminId } = req.params;
-    const user = await Admin.findById(adminId);
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
-    }
-    await user.remove();
-    return res.status(200).json({message: 'User deleted successfully'});
-}
 
-export const GetAllAdmins = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
-        return res.status(403).json({message: 'You are not authorized to perform this action'});
-    }
-    const admins = await Admin.find().select('-password');
-    return res.status(200).json(admins);
-}
-
-export const AdminPasswordResetSend = async (req, res, next) => {
-    const { email } = req.body;
-    const user = await Admin.findOne({email});
+    // Check both Admin and SuperAdmin models
+    let user = await Admin.findOne({ email: email.toLowerCase() });
     if (!user) {
-        return res.status(404).json({message: 'User not found'});
+      user = await SuperAdmin.findOne({ email: email.toLowerCase() });
     }
-    //generate reset token and send email (omitted for brevity)
-    const token = Math.floor(100000 + Math.random() * 900000).toString();
-    const tokenExpiry = Date.now() + 5 * 60 * 1000; // 15 minutes from now
-    user.resetToken = token;
-    user.resetTokenExpiry = tokenExpiry;
+
+    if (!user) {
+      return next(createError(401, "Invalid email or password"));
+    }
+
+    if (!user.verified) {
+      return next(createError(403, "Please verify your email before logging in"));
+    }
+
+    if (!user.isActive) {
+      return next(createError(403, "Your account has been deactivated"));
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return next(createError(401, "Invalid email or password"));
+    }
+
+    const token = generateTokens(user._id, user.userType);
+    user.lastLogin = new Date();
     await user.save();
 
-    const { data, error } = await resend.emails.send({
-        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-        to: email,
-        subject: 'Reset your password',
-        html: passwordResetTemplate(token),
+    user.password = undefined;
+
+    res.status(200).json({
+      success: true,
+      message: "Admin login successful",
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        userType: user.userType,
+        employeeId: user.employeeId,
+        adminLevel: user.adminLevel,
+      },
     });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (error) {
-        return console.error({ error });
+//One time to add super admin
+export const AddSuperAdmin = async (req, res, next) => {
+  try {
+    const { fullName, email, phone, address, password, confirmPassword } = req.body;
+
+    if (!fullName || !email || !phone || !address || !password || !confirmPassword) {
+      return next(createError(400, "Please provide all required fields"));
     }
 
-    console.log({ data });
-
-    return res.status(200).json({message: 'Password reset token sent successfully'});
-}
-
-export const AdminPasswordResetVerify = async (req, res, next) => {
-    const { email, token, newPassword } = req.body;
-    const user = await Admin.findOne({email});
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
-    }
-    if (user.resetToken !== token) {
-        return res.status(400).json({message: 'Invalid token'});
-    }
-    if (user.resetTokenExpiry < Date.now()) {
-        return res.status(400).json({message: 'Token expired'});
-    }
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(newPassword, salt);
-    user.password = hash;
-    user.resetToken = null;
-    user.resetTokenExpiry = null;
-    await user.save();
-    return res.status(200).json({message: 'Password reset successfully'});
-}
-
-export const studentPasswordResetSend = async (req, res, next) => {
-    const { email } = req.body;
-    const user = await Student.findOne({email});
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
-    }
-    //generate reset token and send email (omitted for brevity)
-    const token = Math.floor(100000 + Math.random() * 900000).toString();
-    const tokenExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
-    user.resetToken = token;
-    user.resetTokenExpiry = tokenExpiry;
-    await user.save();
-
-    const { data, error } = await resend.emails.send({
-        from: 'Bells University Alumni Association <noreply@notifications.bellsuniversityalumni.com>',
-        to: email,
-        subject: 'Reset your password',        
-        html: passwordResetTemplate(token),        
-    });
-
-    if (error) {
-        return console.error({ error });
+    if (password !== confirmPassword) {
+      return next(createError(400, "Passwords do not match"));
     }
 
-    console.log({ data });
-
-    return res.status(200).json({message: 'Password reset token sent successfully'});
-}
-
-export const studentPasswordResetVerify = async (req, res, next) => {
-    const { email, token, newPassword } = req.body;
-    const user = await Student.findOne({email});
-    if (!user) {
-        return res.status(404).json({message: 'User not found'});
+    if (password.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
     }
-    if (user.resetToken !== token) {
-        return res.status(400).json({message: 'Invalid token'});
-    }
-    if (user.resetTokenExpiry < Date.now()) {
-        return res.status(400).json({message: 'Token expired'});
-    }
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(newPassword, salt);
-    user.password = hash;
-    user.resetToken = null;
-    user.resetTokenExpiry = null;
-    await user.save();
-    return res.status(200).json({message: 'Password reset successfully'});
-}
-
     
+    // Check if super admin already exists    
+    const existingSuperAdmin = await SuperAdmin.findOne({ email: email.toLowerCase() });
+    if (existingSuperAdmin) {
+      return next(createError(409, "Super admin with this email already exists"));
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create super admin
+    const superAdmin = new SuperAdmin({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      address,
+      password: hashedPassword,
+    });
+
+    await superAdmin.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Super admin added successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ADD ADMIN - Super admin only
+export const AddAdmin = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      address,
+      password,
+      confirmPassword,
+      department,
+      permissions = [],
+    } = req.body;
+
+    const superAdminId = req.user?.userId;
+
+    if (!fullName || !email || !phone || !address || !password || !confirmPassword) {
+      return next(createError(400, "Please provide all required fields"));
+    }
+
+    if (password !== confirmPassword) {
+      return next(createError(400, "Passwords do not match"));
+    }
+
+    if (password.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
+    }
+
+    // Check if user already exists
+    let existingUser = await Admin.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return next(createError(409, "Admin with this email already exists"));
+    }
+
+    existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return next(createError(409, "Email already registered"));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate verification token
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const newAdmin = new Admin({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      address,
+      password: hashedPassword,
+      department: department || "Operations",
+      permissions,
+      verificationToken,
+      verificationTokenExpiry,
+      verified: false,
+      userType: "admin",
+      adminLevel: 1,
+      superAdminId,
+    });
+
+    await newAdmin.save();
+
+    // Add admin to super admin's list
+    if (superAdminId) {
+      await SuperAdmin.findByIdAndUpdate(
+        superAdminId,
+        { $push: { addedAdmins: newAdmin._id } },
+        { new: true }
+      );
+    }
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken, fullName);
+
+    res.status(201).json({
+      success: true,
+      message: "Admin added successfully. Verification email sent.",
+      admin: {
+        id: newAdmin._id,
+        fullName: newAdmin.fullName,
+        email: newAdmin.email,
+        department: newAdmin.department,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE ADMIN - Super admin only
+export const DeleteAdmin = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return next(createError(400, "User ID is required"));
+    }
+
+    // Remove from super admin's list
+    await deleteUser(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Admin deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET ALL ADMINS - Super admin only
+export const GetAllAdmins = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10, department, type } = req.query;
+
+    const query = {};
+
+    const skip = (page - 1) * limit;
+
+    const model = getUserModel(type) || Admin;
+
+    const users = await model.find()
+      .select("-password")
+      .limit(parseInt(limit))
+      .skip(skip)
+      .sort({ createdAt: -1 });
+
+    const total = await model.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET CURRENT USER
+export const GetCurrentUser = async (req, res, next) => {
+  try {
+    const { userId, userType } = req.user;
+
+    const UserModel = getUserModel(userType);
+    const user = await UserModel.findById(userId).select("-password");
+
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ADD COURIER - Super admin only
+export const AddCourier = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      address,
+      password,
+      courierLicense,
+      vehicleType,
+    } = req.body;
+
+    const superAdminId = req.user?.userId;
+
+    if (!fullName || !email || !phone || !address || !password || !courierLicense || !vehicleType) {
+      return next(createError(400, "Please provide all required fields"));
+    }
+
+    if (password.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
+    }
+
+    // Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return next(createError(409, "Email already registered"));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate verification token
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const newCourier = new Courier({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      address,
+      password: hashedPassword,
+      courierLicense,
+      vehicleType,
+      userType: "courier",
+      isAvailable: true,
+      rating: 0,
+      shipmentsDelivered: 0,
+      verificationToken,
+      verificationTokenExpiry,
+      verified: false,
+    });
+
+    await newCourier.save();
+
+    // Add courier to super admin's list
+    if (superAdminId) {
+      await SuperAdmin.findByIdAndUpdate(
+        superAdminId,
+        { $push: { addedCouriers: newCourier._id } },
+        { new: true }
+      );
+    }
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken, fullName);
+
+    res.status(201).json({
+      success: true,
+      message: "Courier added successfully. Verification email sent.",
+      courier: {
+        id: newCourier._id,
+        fullName: newCourier.fullName,
+        email: newCourier.email,
+        phone: newCourier.phone,
+        vehicleType: newCourier.vehicleType,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ADD STAFF - Super admin only
+export const AddStaff = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      address,
+      password,
+      confirmPassword,
+      checkpoint,
+      checkpointCode,
+      department,
+    } = req.body;
+
+    const superAdminId = req.user?.userId;
+
+    if (!fullName || !email || !phone || !address || !password || !confirmPassword || !checkpoint || !checkpointCode) {
+      return next(createError(400, "Please provide all required fields"));
+    }
+
+    if (password !== confirmPassword) {
+      return next(createError(400, "Passwords do not match"));
+    }
+
+    if (password.length < 8) {
+      return next(createError(400, "Password must be at least 8 characters"));
+    }
+
+    // Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return next(createError(409, "Email already registered"));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate verification token
+    const verificationToken = jwt.sign({ email }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const newStaff = new Staff({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      address,
+      password: hashedPassword,
+      checkpoint,
+      checkpointCode,
+      department: department || "General",
+      userType: "staff",
+      verificationToken,
+      verificationTokenExpiry,
+      verified: false,
+    });
+
+    await newStaff.save();
+
+    // Add staff to super admin's list
+    if (superAdminId) {
+      await SuperAdmin.findByIdAndUpdate(
+        superAdminId,
+        { $push: { addedStaff: newStaff._id } },
+        { new: true }
+      );
+    }
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken, fullName);
+
+    res.status(201).json({
+      success: true,
+      message: "Staff member added successfully. Verification email sent.",
+      staff: {
+        id: newStaff._id,
+        fullName: newStaff.fullName,
+        email: newStaff.email,
+        phone: newStaff.phone,
+        checkpoint: newStaff.checkpoint,
+        checkpointCode: newStaff.checkpointCode,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}; 
 
