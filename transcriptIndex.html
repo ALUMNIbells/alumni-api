@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bells University – Student Transcript</title>
+
+  <style>
+    body {
+      background: #eee;
+      font-family: "Times New Roman", serif;
+      padding: 30px;
+    }
+
+    .page {
+      background: #ecf19699;
+      width: 850px;
+      margin: auto;
+      padding: 10px 60px;
+      border: 1px solid #ccc;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .header img {
+      width: 70px;
+      margin-bottom: 10px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      margin: 0;
+      letter-spacing: 1px;
+    }
+
+    .header h2 {
+      font-size: 16px;
+      margin: 5px 0 0;
+      font-weight: normal;
+    }
+
+    /* Student Info */
+    .info {
+      font-size: 15px;
+      margin-bottom: 25px;
+      line-height: 1.7;
+    }
+
+    .info span {
+      display: inline-block;
+      min-width: 200px;
+      font-weight: bold;
+    }
+
+    /* Semester title */
+    .semester-title {
+      font-weight: bold;
+      margin: 25px 0 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+    }
+
+    th {
+      text-align: center;
+      font-weight: bold;
+    }
+
+    td:nth-child(1),
+    td:nth-child(3),
+    td:nth-child(4) {
+      text-align: center;
+    }
+
+    /* Summary */
+    .summary {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    
+    <img src="./images-removebg-preview.png" alt="" srcset="" style="width: 110px;height: 110px;">
+    <h1>BELLS UNIVERSITY OF TECHNOLOGY</h1>
+    <h2>STUDENT TRANSCRIPT</h2>
+  </div>
+
+  <!-- Student Info -->
+  <div class="info">
+    <div><b>MATRIC NUMBER:</b> 2005/0028</div>
+    <div><b>NAME:</b> ACHAS, MOSES JOY</div>
+    <div><b>DEGREE PROGRAMME:</b> INFORMATION TECHNOLOGY</div>
+    <div><b>DEPARTMENT:</b> INFORMATION TECHNOLOGY</div>
+    <div><b>COLLEGE:</b> COLLEGE OF INFORMATION AND COMMUNICATIONS TECHNOLOGY</div>
+  </div>
+
+  <!-- First Semester -->
+  <div class="semester-title">
+    <div>FIRST SEMESTER</div>
+    <div>2005/2006</div>
+    <div>100</div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Course Code</th>
+      <th>Course Title</th>
+      <th>Unit Value</th>
+      <th>Grade Obtained</th>
+    </tr>
+    <tr><td>AMS101</td><td>Basic Mathematics</td><td>3</td><td>72 (A)</td></tr>
+    <tr><td>AMS103</td><td>Elementary Calculus</td><td>3</td><td>66 (B)</td></tr>
+    <tr><td>CHM121</td><td>Physical Chemistry I</td><td>3</td><td>50 (C)</td></tr>
+    <tr><td>CSC101</td><td>Introduction to Computer Science</td><td>3</td><td>63 (B)</td></tr>
+    <tr><td>GES101</td><td>Use of English</td><td>3</td><td>60 (B)</td></tr>
+    <tr><td>PHY111</td><td>Mechanics</td><td>3</td><td>66 (B)</td></tr>
+    <tr><td>PHY113</td><td>Basic Engineering Drawing</td><td>2</td><td>81 (A)</td></tr>
+    <tr><td>PHY121</td><td>Thermodynamics</td><td>3</td><td>65 (B)</td></tr>
+  </table>
+
+  <div class="summary">
+    TOTAL CREDIT OFFERED: 23<br>
+    TOTAL CREDIT PASSED: 23<br>
+    SEMESTER GPA: 4.09
+  </div>
+
+  <!-- Second Semester -->
+  <div class="semester-title">
+    <div>SECOND SEMESTER</div>
+    <div></div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Course Code</th>
+      <th>Course Title</th>
+      <th>Unit Value</th>
+      <th>Grade Obtained</th>
+    </tr>
+    <tr><td>AMS104</td><td>Mathematical Model</td><td>3</td><td>51 (C)</td></tr>
+    <tr><td>AMS106</td><td>Data Analysis</td><td>3</td><td>56 (C)</td></tr>
+    <tr><td>CHM112</td><td>Organic Chemistry</td><td>2</td><td>40 (E)</td></tr>
+    <tr><td>CSC102</td><td>Introduction to Computer Programming</td><td>3</td><td>41 (E)</td></tr>
+    <tr><td>GES102</td><td>Culture and Civilization</td><td>2</td><td>56 (C)</td></tr>
+    <tr><td>GES104</td><td>Use of English II</td><td>2</td><td>50 (C)</td></tr>
+    <tr><td>ITP102</td><td>Introduction to Information Technology</td><td>3</td><td>54 (C)</td></tr>
+    <tr><td>ITP104</td><td>Introduction to Communication Technology</td><td>3</td><td>60 (B)</td></tr>
+    <tr><td>PHY122</td><td>Electricity and Magnetism</td><td>3</td><td>40 (E)</td></tr>
+  </table>
+
+  <div class="summary">
+    TOTAL CREDIT OFFERED: 24<br>
+    TOTAL CREDIT PASSED: 24<br>
+    SEMESTER GPA: 2.46<br>
+    CUMULATIVE GPA: 3.26
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Page 1
+  </div>
+
+</div>
+
+</body>
+</html>
