@@ -368,3 +368,230 @@ export const welcomeEmailTemplate = (fullName) => {
 
     `
 }
+
+export const inquiryNotificationTemplate = ({ name, phone, email, message, submittedAt }) => {
+    const formattedDate = submittedAt ? new Date(submittedAt).toLocaleString() : new Date().toLocaleString();
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en" style="margin: 0; padding: 0;">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>New Inquiry Notification</title>
+        </head>
+        <body
+            style="
+            margin: 0;
+            padding: 0;
+            background-color: #f5f8ff;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: #333;
+            "
+        >
+            <table
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="background-color: #f5f8ff; padding: 40px 0;"
+            >
+            <tr>
+                <td align="center">
+                <table
+                    width="520"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                    "
+                >
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #0a66c2;
+                        color: #ffffff;
+                        padding: 24px 0;
+                        font-size: 22px;
+                        font-weight: bold;
+                        letter-spacing: 0.5px;
+                        "
+                    >
+                        New Alumni Inquiry
+                    </td>
+                    </tr>
+
+                    <tr>
+                    <td style="padding: 32px 24px; color: #333333;">
+                        <p style="font-size: 16px; margin: 0 0 16px;">
+                        A new inquiry was submitted on the alumni platform.
+                        </p>
+
+                        <table width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size: 15px;">
+                        <tr>
+                            <td style="padding: 6px 0;"><strong>Name:</strong></td>
+                            <td style="padding: 6px 0;">${name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0;"><strong>Email:</strong></td>
+                            <td style="padding: 6px 0;">${email}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0;"><strong>Phone:</strong></td>
+                            <td style="padding: 6px 0;">${phone}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0;"><strong>Submitted:</strong></td>
+                            <td style="padding: 6px 0;">${formattedDate}</td>
+                        </tr>
+                        </table>
+
+                        <div
+                        style="
+                            margin-top: 18px;
+                            background-color: #f0f6ff;
+                            border-left: 4px solid #0a66c2;
+                            border-radius: 6px;
+                            padding: 14px 16px;
+                            font-size: 15px;
+                            line-height: 1.6;
+                            
+                        "
+                        >
+                            ${message}
+                        </div>
+                    </td>
+                    </tr>
+
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #f5f8ff;
+                        padding: 20px;
+                        font-size: 13px;
+                        color: #777;
+                        "
+                    >
+                        &copy; ${new Date().getFullYear()} BELLSTECH ALUMNI. All rights reserved.
+                    </td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            </table>
+        </body>
+        </html>
+    `
+}
+export const inquiryResponseTemplate = ({ name, phone, email, message }) => {
+    const formattedDate = new Date().toLocaleString();
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en" style="margin: 0; padding: 0;">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Inquiry Response Notification</title>
+        </head>
+        <body
+            style="
+            margin: 0;
+            padding: 0;
+            background-color: #f5f8ff;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: #333;
+            "
+        >
+            <table
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="background-color: #f5f8ff; padding: 40px 0;"
+            >
+            <tr>
+                <td align="center">
+                <table
+                    width="520"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                    "
+                >
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #0a66c2;
+                        color: #ffffff;
+                        padding: 24px 0;
+                        font-size: 22px;
+                        font-weight: bold;
+                        letter-spacing: 0.5px;
+                        "
+                    >
+                        Inquiry Response Notification
+                    </td>
+                    </tr>
+
+                    <tr>
+                    <td style="padding: 32px 24px; color: #333333;">
+                        <p style="font-size: 16px; margin: 0 0 16px;">
+                            Hello ${name}, An Admin has provided a response to your inquiry.
+                        </p>
+
+                        <div
+                        style="
+                            margin-top: 18px;
+                            background-color: #f0f6ff;
+                            border-left: 4px solid #0a66c2;
+                            border-radius: 6px;
+                            padding: 14px 16px;
+                            font-size: 15px;
+                            line-height: 1.6;
+                            white-space: pre-wrap;
+                        "
+                        >
+                            ${message}
+                        </div>
+                    </td>
+                    </tr>
+
+
+                    <p style="font-size: 16px; margin: 0 0 16px;">
+                      Thank you for reaching out to us.
+                    </p>
+
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #f5f8ff;
+                        padding: 20px;
+                        font-size: 13px;
+                        color: #777;
+                        "
+                    >
+                        &copy; ${new Date().getFullYear()} BELLSTECH ALUMNI. All rights reserved.
+                    </td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            </table>
+        </body>
+        </html>
+    `
+}

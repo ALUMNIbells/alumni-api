@@ -6,6 +6,9 @@ import paymentRoutes from "./routes/v1/payments.js";
 import authRoutes from "./routes/v1/auth.js";
 import systemStateRoutes from "./routes/v1/systemState.js";
 import transcriptRoutes from "./routes/v1/transcript.js";
+import websiteStateRoutes from "./routes/v1/websiteState.js";
+import newsletterRoutes from "./routes/v1/newsletter.js";
+import inquiryRoutes from "./routes/v1/inquiry.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
@@ -43,6 +46,9 @@ app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/system-state', systemStateRoutes);
 app.use('/api/v1/transcript', transcriptRoutes);
+app.use('/api/v1/website-state', websiteStateRoutes); 
+app.use('/api/v1/newsletters', newsletterRoutes);
+app.use('/api/v1/inquiries', inquiryRoutes);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(5000, () =>{
