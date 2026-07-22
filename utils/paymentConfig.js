@@ -7,42 +7,42 @@ const PAYMENT_TYPES = {
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - MSC": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesMsc",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - PGD": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesPgd",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - PHD": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesPhd",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - M. ENG": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesMENG",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - M. PHIL": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesMPHIL",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],
     addition: 1000
   },
   "ALUMNI CLEARANCE DUES - MBA": {
-    amountKey: "alumniDues",
+    amountKey: "alumniDuesMBA",
     splitCode: "SPL_qb31b7ThqX",
     uniqueCompleted: true,
     onSuccess: ["sendWelcomeEmail"],

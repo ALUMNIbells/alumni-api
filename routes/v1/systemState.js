@@ -52,6 +52,9 @@ router.patch('/', verifyTken, async (req, res)=>{
             systemState.fees.alumniDuesMsc = fees.alumniDuesMsc || systemState.fees.alumniDuesMsc;
             systemState.fees.alumniDuesPhd = fees.alumniDuesPhd || systemState.fees.alumniDuesPhd;
             systemState.fees.alumniDuesPgd = fees.alumniDuesPgd || systemState.fees.alumniDuesPgd;
+            systemState.fees.alumniDuesMBA = fees.alumniDuesMBA || systemState.fees.alumniDuesMBA;
+            systemState.fees.alumniDuesMENG = fees.alumniDuesMENG || systemState.fees.alumniDuesMENG;
+            systemState.fees.alumniDuesMPHIL = fees.alumniDuesMPHIL || systemState.fees.alumniDuesMPHIL;
             systemState.fees.alumniDonation = fees.alumniDonation || systemState.fees.alumniDonation;
             systemState.fees.studentTranscript = fees.studentTranscript || systemState.fees.studentTranscript;
         }
@@ -64,6 +67,21 @@ router.patch('/', verifyTken, async (req, res)=>{
     }
 })
 
+router.get('/', verifyTken, async (req, res)=>{
+    try {
+        if(req.user.role !== 'admin' && req.user.role !== 'super-admin'){
+            return res.status(403).json({message: 'Forbidden: You do not have permission to perform this action.'});
+        }
+        const systemState = await SystemState.findOne();
+        if (!systemState) {
+            return res.status(404).json({ message: 'System state not found.' });
+        }
+        res.status(200).json(systemState);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message: 'Internal server error'});
+    }
+})
 //add souvenir
 router.post('/souvenir', verifyTken, async (req, res)=>{
     try {

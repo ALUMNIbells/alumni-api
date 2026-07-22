@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const LogSchema = new mongoose.Schema({
     type: { type: String, required: true },
     user: { type: String },
