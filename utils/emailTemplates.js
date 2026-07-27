@@ -369,6 +369,119 @@ export const welcomeEmailTemplate = (fullName) => {
     `
 }
 
+export const connectionRequestTemplate = ({
+    recipientName,
+    requesterName,
+    requesterCollege,
+    requesterCourse,
+    requesterOccupation,
+}) => {
+    return `
+        <!DOCTYPE html>
+        <html lang="en" style="margin: 0; padding: 0;">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>New Alumni Connection Request</title>
+        </head>
+        <body
+            style="
+            margin: 0;
+            padding: 0;
+            background-color: #f5f8ff;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: #333;
+            "
+        >
+            <table
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="background-color: #f5f8ff; padding: 40px 0;"
+            >
+            <tr>
+                <td align="center">
+                <table
+                    width="520"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                    "
+                >
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #0a66c2;
+                        color: #ffffff;
+                        padding: 24px 0;
+                        font-size: 22px;
+                        font-weight: bold;
+                        letter-spacing: 0.5px;
+                        "
+                    >
+                        New Connection Request
+                    </td>
+                    </tr>
+
+                    <tr>
+                    <td style="padding: 32px 24px; color: #333333;">
+                        <p style="font-size: 16px; margin: 0 0 16px;">
+                        Hello ${recipientName},
+                        </p>
+                        <p style="font-size: 16px; margin: 0 0 20px; line-height: 1.6;">
+                        <strong>${requesterName}</strong> wants to connect with you on the Bells University Alumni platform.
+                        </p>
+
+                        <div
+                        style="
+                            background-color: #f0f6ff;
+                            border-left: 4px solid #0a66c2;
+                            border-radius: 6px;
+                            padding: 16px 18px;
+                            font-size: 15px;
+                            line-height: 1.7;
+                        "
+                        >
+                            <div><strong>College:</strong> ${requesterCollege || "Not provided"}</div>
+                            <div><strong>Course:</strong> ${requesterCourse || "Not provided"}</div>
+                            <div><strong>Occupation:</strong> ${requesterOccupation || "Not provided"}</div>
+                        </div>
+
+                        <p style="font-size: 15px; margin: 24px 0 0; color: #555; line-height: 1.6;">
+                        Sign in to your alumni account to review and accept the request.
+                        </p>
+                    </td>
+                    </tr>
+
+                    <tr>
+                    <td
+                        align="center"
+                        style="
+                        background-color: #f5f8ff;
+                        padding: 20px;
+                        font-size: 13px;
+                        color: #777;
+                        "
+                    >
+                        &copy; ${new Date().getFullYear()} Bells University Alumni Association. All rights reserved.
+                    </td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            </table>
+        </body>
+        </html>
+    `
+}
+
 export const inquiryNotificationTemplate = ({ name, phone, email, message, submittedAt }) => {
     const formattedDate = submittedAt ? new Date(submittedAt).toLocaleString() : new Date().toLocaleString();
 

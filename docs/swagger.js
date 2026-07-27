@@ -4,17 +4,17 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Payments API",
+      title: "Alumni API",
       version: "1.0.0",
-      description: "API documentation for the payment system",
+      description: "API documentation for the alumni platform",
     },
     servers: [
       {
-        url: "http://localhost:5000/api",
+        url: "http://localhost:5000/api/v1",
         description: "Local server",
       },
       {
-        url: "https://your-production-domain.com/api",
+        url: "https://www.bellsuniversityalumni.com/api/v1",
         description: "Production server",
       },
     ],
