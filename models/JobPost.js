@@ -4,7 +4,13 @@ const JobPostSchema = new mongoose.Schema(
   {
     author: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
+      refPath: "authorModel",
+      required: true,
+    },
+    authorModel: {
+      type: String,
+      enum: ["Student", "Admin"],
+      default: "Student",
       required: true,
     },
     title: {
@@ -26,6 +32,17 @@ const JobPostSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+    },
+    verifiedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -33,7 +50,9 @@ const JobPostSchema = new mongoose.Schema(
 );
 
 JobPostSchema.index({ author: 1, createdAt: -1 });
+JobPostSchema.index({ authorModel: 1, createdAt: -1 });
 JobPostSchema.index({ title: 1, createdAt: -1 });
+JobPostSchema.index({ verified: 1, active: 1, createdAt: -1 });
 
 const JobPost = mongoose.model("JobPost", JobPostSchema);
 

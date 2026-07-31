@@ -12,15 +12,13 @@ const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 const PROFILE_FIELDS = [
   "fullName",
   "phone",
-  "college",
-  "course",
   "imgurl",
   "occupation",
   "address",
   "description",
 ];
 
-const REQUIRED_PROFILE_FIELDS = ["fullName", "phone", "college", "course"];
+const REQUIRED_PROFILE_FIELDS = ["fullName", "phone"];
 
 const STUDENT_SUMMARY_FIELDS =
   "fullName email matricNo college course occupation imgurl description createdAt connections verified";
@@ -44,6 +42,24 @@ const extractMatricYear = (matricNo = "") => {
 const ensureStudentRole = (req, res) => {
   if (req.user?.role !== "student") {
     res.status(403).json({ message: "Only students can perform this action" });
+    return false;
+  }
+
+  return true;
+};
+
+const ensureAdminOrSuperAdminRole = (req, res) => {
+  if (req.user?.role !== "admin" && req.user?.role !== "super-admin") {
+    res.status(403).json({ message: "Only admin and super-admin can perform this action" });
+    return false;
+  }
+
+  return true;
+};
+
+const ensureSuperAdminRole = (req, res) => {
+  if (req.user?.role !== "super-admin") {
+    res.status(403).json({ message: "Only super-admin can perform this action" });
     return false;
   }
 
@@ -380,6 +396,35 @@ export const rejectConnectionRequest = async (req, res) => {
   }
 };
 
+export const cancelSentConnectionRequest = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { requestId } = req.params;
+
+    const connectionRequest = await ConnectionRequest.findOne({
+      _id: requestId,
+      requester: req.user.id,
+      status: "pending",
+    });
+
+    if (!connectionRequest) {
+      return res.status(404).json({ message: "Pending sent connection request not found" });
+    }
+
+    await ConnectionRequest.deleteOne({ _id: connectionRequest._id });
+
+    return res.status(200).json({
+      message: "Sent connection request cancelled successfully",
+    });
+  } catch (error) {
+    console.error("Error cancelling sent connection request:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const getConnections = async (req, res) => {
   try {
     if (!ensureStudentRole(req, res)) {
@@ -642,7 +687,14 @@ export const discoverStudents = async (req, res) => {
 
 export const createJobPost = async (req, res) => {
   try {
-    if (!ensureStudentRole(req, res)) {
+    const isStudent = req.user?.role === "student";
+    const isSuperAdmin = req.user?.role === "super-admin";
+
+    if (!isStudent && !isSuperAdmin) {
+      return res.status(403).json({ message: "Only students and super-admin can create job posts" });
+    }
+
+    if (isStudent && !ensureStudentRole(req, res)) {
       return;
     }
 
@@ -654,17 +706,20 @@ export const createJobPost = async (req, res) => {
       });
     }
 
-    const currentStudent = await Student.findById(req.user.id).select("verified").lean();
-    if (!currentStudent) {
-      return res.status(404).json({ message: "Student not found" });
-    }
+    if (isStudent) {
+      const currentStudent = await Student.findById(req.user.id).select("verified").lean();
+      if (!currentStudent) {
+        return res.status(404).json({ message: "Student not found" });
+      }
 
-    if (!currentStudent.verified) {
-      return res.status(403).json({ message: "Only verified students can create job posts" });
+      if (!currentStudent.verified) {
+        return res.status(403).json({ message: "Only verified students can create job posts" });
+      }
     }
 
     const jobPost = await JobPost.create({
       author: req.user.id,
+      authorModel: isStudent ? "Student" : "Admin",
       title: title.trim(),
       location: location.trim(),
       description: description.trim(),
@@ -715,8 +770,20 @@ export const getJobFeed = async (req, res) => {
         { $match: match },
         {
           $addFields: {
+            isStudentAuthor: {
+              $eq: ["$authorModel", "Student"],
+            },
             connectionScore: {
-              $cond: [{ $in: ["$author", connectionIds] }, 10, 0],
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$authorModel", "Student"] },
+                    { $in: ["$author", connectionIds] },
+                  ],
+                },
+                10,
+                0,
+              ],
             },
             recentScore: {
               $cond: [{ $gte: ["$createdAt", recentThreshold] }, 3, 0],
@@ -739,10 +806,17 @@ export const getJobFeed = async (req, res) => {
             from: "students",
             localField: "author",
             foreignField: "_id",
-            as: "author",
+            as: "studentAuthor",
           },
         },
-        { $unwind: "$author" },
+        {
+          $lookup: {
+            from: "admins",
+            localField: "author",
+            foreignField: "_id",
+            as: "adminAuthor",
+          },
+        },
         { $skip: skip },
         { $limit: limit },
         {
@@ -750,17 +824,46 @@ export const getJobFeed = async (req, res) => {
             title: 1,
             location: 1,
             description: 1,
+            verified: 1,
             createdAt: 1,
-            isConnection: { $in: ["$author._id", connectionIds] },
+            isConnection: {
+              $and: [{ $eq: ["$authorModel", "Student"] }, { $in: ["$author", connectionIds] }],
+            },
+            authorModel: 1,
             author: {
-              _id: "$author._id",
-              fullName: "$author.fullName",
-              email: "$author.email",
-              matricNo: "$author.matricNo",
-              college: "$author.college",
-              course: "$author.course",
-              occupation: "$author.occupation",
-              imgurl: "$author.imgurl",
+              $cond: [
+                { $eq: ["$authorModel", "Student"] },
+                {
+                  $let: {
+                    vars: {
+                      source: { $arrayElemAt: ["$studentAuthor", 0] },
+                    },
+                    in: {
+                      _id: "$$source._id",
+                      fullName: "$$source.fullName",
+                      email: "$$source.email",
+                      matricNo: "$$source.matricNo",
+                      college: "$$source.college",
+                      course: "$$source.course",
+                      occupation: "$$source.occupation",
+                      imgurl: "$$source.imgurl",
+                    },
+                  },
+                },
+                {
+                  $let: {
+                    vars: {
+                      source: { $arrayElemAt: ["$adminAuthor", 0] },
+                    },
+                    in: {
+                      _id: "$$source._id",
+                      fullName: "$$source.fullName",
+                      email: "$$source.email",
+                      role: "$$source.role",
+                    },
+                  },
+                },
+              ],
             },
           },
         },
@@ -782,6 +885,249 @@ export const getJobFeed = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching job feed:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getMyJobs = async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const authorModel = req.user?.role === "student" ? "Student" : "Admin";
+
+    const [jobs, total] = await Promise.all([
+      JobPost.find({ author: req.user.id, authorModel })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      JobPost.countDocuments({ author: req.user.id, authorModel }),
+    ]);
+
+    return res.status(200).json({
+      message: "Personal jobs retrieved successfully",
+      data: jobs,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching personal jobs:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllJobs = async (req, res) => {
+  try {
+    if (!ensureSuperAdminRole(req, res)) {
+      return;
+    }
+
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = (req.query.search || req.query.q || "").trim();
+
+    const query = {};
+    if (search) {
+      query.title = new RegExp(escapeRegex(search), "i");
+    }
+    if (req.query.verified === "true") {
+      query.verified = true;
+    }
+    if (req.query.verified === "false") {
+      query.verified = false;
+    }
+    if (req.query.active === "true") {
+      query.active = true;
+    }
+    if (req.query.active === "false") {
+      query.active = false;
+    }
+
+    const [jobs, total] = await Promise.all([
+      JobPost.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("author", "fullName email matricNo college course occupation imgurl role")
+        .lean(),
+      JobPost.countDocuments(query),
+    ]);
+
+    return res.status(200).json({
+      message: "All jobs retrieved successfully",
+      data: jobs,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching all jobs:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const verifyJobPost = async (req, res) => {
+  try {
+    if (!ensureAdminOrSuperAdminRole(req, res)) {
+      return;
+    }
+
+    const { jobId } = req.params;
+    const { verified = true } = req.body;
+
+    const job = await JobPost.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job post not found" });
+    }
+
+    const parsedVerified =
+      typeof verified === "string" ? verified.toLowerCase() === "true" : Boolean(verified);
+
+    job.verified = parsedVerified;
+    job.verifiedBy = req.user.id;
+    job.verifiedAt = new Date();
+    await job.save();
+
+    return res.status(200).json({
+      message: `Job post ${job.verified ? "verified" : "unverified"} successfully`,
+      data: job,
+    });
+  } catch (error) {
+    console.error("Error verifying job post:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateJobPost = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await JobPost.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job post not found" });
+    }
+
+    const isSuperAdmin = req.user?.role === "super-admin";
+    const isOwner =
+      String(job.author) === String(req.user.id) &&
+      ((job.authorModel === "Student" && req.user?.role === "student") ||
+        (job.authorModel === "Admin" && req.user?.role !== "student"));
+
+    if (!isSuperAdmin && !isOwner) {
+      return res.status(403).json({ message: "You are not authorized to update this job post" });
+    }
+
+    const updateData = {};
+    const editableFields = ["title", "location", "description", "active"];
+
+    for (const field of editableFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        const value = typeof req.body[field] === "string" ? req.body[field].trim() : req.body[field];
+        updateData[field] = value;
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "No updatable fields provided" });
+    }
+
+    if (updateData.title === "" || updateData.location === "" || updateData.description === "") {
+      return res.status(400).json({ message: "title, location and description cannot be empty" });
+    }
+
+    const updatedJob = await JobPost.findByIdAndUpdate(
+      jobId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+
+    return res.status(200).json({
+      message: "Job post updated successfully",
+      data: updatedJob,
+    });
+  } catch (error) {
+    console.error("Error updating job post:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteJobPost = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await JobPost.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job post not found" });
+    }
+
+    const isSuperAdmin = req.user?.role === "super-admin";
+    const isOwner =
+      String(job.author) === String(req.user.id) &&
+      ((job.authorModel === "Student" && req.user?.role === "student") ||
+        (job.authorModel === "Admin" && req.user?.role !== "student"));
+
+    if (!isSuperAdmin && !isOwner) {
+      return res.status(403).json({ message: "You are not authorized to delete this job post" });
+    }
+
+    await JobPost.deleteOne({ _id: jobId });
+
+    return res.status(200).json({
+      message: "Job post deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting job post:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllStudents = async (req, res) => {
+  try {
+    if (!ensureAdminOrSuperAdminRole(req, res)) {
+      return;
+    }
+
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = (req.query.search || req.query.q || "").trim();
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { fullName: new RegExp(escapeRegex(search), "i") },
+        { email: new RegExp(escapeRegex(search), "i") },
+        { matricNo: new RegExp(escapeRegex(search), "i") },
+        { college: new RegExp(escapeRegex(search), "i") },
+        { course: new RegExp(escapeRegex(search), "i") },
+      ];
+    }
+
+    const [students, total] = await Promise.all([
+      Student.find(query)
+        .select("-password -token -tokenExpiry -resetToken -resetTokenExpiry")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Student.countDocuments(query),
+    ]);
+
+    return res.status(200).json({
+      message: "Students retrieved successfully",
+      data: students,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching students:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

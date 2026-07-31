@@ -234,15 +234,22 @@
 import express from "express";
 import {
   acceptConnectionRequest,
+  cancelSentConnectionRequest,
   createJobPost,
+  deleteJobPost,
   discoverStudents,
+  getAllJobs,
+  getAllStudents,
   getConnections,
   getConnectionRequests,
   getJobFeed,
+  getMyJobs,
   getStudentProfile,
   rejectConnectionRequest,
   sendConnectionRequest,
+  updateJobPost,
   updateStudentProfile,
+  verifyJobPost,
 } from "../../controllers/students/index.js";
 import verifyTken from "../../verifyToken.js";
 
@@ -256,7 +263,14 @@ router.get("/connections/requests", verifyTken, getConnectionRequests);
 router.post("/connections/requests/:studentId", verifyTken, sendConnectionRequest);
 router.patch("/connections/requests/:requestId/accept", verifyTken, acceptConnectionRequest);
 router.patch("/connections/requests/:requestId/reject", verifyTken, rejectConnectionRequest);
+router.delete("/connections/requests/:requestId/cancel", verifyTken, cancelSentConnectionRequest);
 router.post("/jobs", verifyTken, createJobPost);
 router.get("/jobs/feed", verifyTken, getJobFeed);
+router.get("/jobs/my", verifyTken, getMyJobs);
+router.get("/jobs", verifyTken, getAllJobs);
+router.patch("/jobs/:jobId/verify", verifyTken, verifyJobPost);
+router.patch("/jobs/:jobId", verifyTken, updateJobPost);
+router.delete("/jobs/:jobId", verifyTken, deleteJobPost);
+router.get("/all", verifyTken, getAllStudents);
 
 export default router;
