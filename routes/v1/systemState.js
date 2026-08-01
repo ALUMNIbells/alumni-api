@@ -146,6 +146,9 @@ router.patch('/souvenir/:sku', verifyTken, async (req, res)=>{
 
 router.delete('/souvenir/:sku', verifyTken, async(req,res)=>{
     try {
+        if(req.user.role !== 'admin' && req.user.role !== 'super-admin'){
+            return res.status(403).json({message: 'Forbidden: You do not have permission to perform this action.'});
+        }
         const systemState = await SystemState.findOne();
         if (!systemState) {
             return res.status(404).json({ message: 'System state not found.' });
@@ -155,8 +158,11 @@ router.delete('/souvenir/:sku', verifyTken, async(req,res)=>{
             return res.status(404).json({ message: 'Souvenir not found.' });
         }
         systemState.souvenirs.splice(souvenirIndex, 1);
+        await systemState.save();
+        res.status(200).json(systemState);
     } catch (error) {
-        
+        console.log(error);
+        res.status(500).json({message: 'Internal server error'});
     }
 })
 

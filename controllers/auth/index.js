@@ -152,7 +152,7 @@ export const ResendVerificationToken = async (req, res, next) => {
 }
 
 export const AddAdmin = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
+    if(req.user.role !== 'super-admin'){
         return res.status(403).json({message: 'You are not authorized to perform this action'});
     }
     if(!req.body.email || !req.body.password || !req.body.fullName){
@@ -191,7 +191,7 @@ export const AdminSignIn = async (req, res, next) => {
 }
 
 export const DeleteAdmin = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
+    if(req.user.role !== 'super-admin'){
         return res.status(403).json({message: 'You are not authorized to perform this action'});
     }
     const { adminId } = req.params;
@@ -204,7 +204,7 @@ export const DeleteAdmin = async (req, res, next) => {
 }
 
 export const GetAllAdmins = async (req, res, next) => {
-    if(req.user.role !== 'admin'){
+    if(req.user.role !== 'super-admin'){
         return res.status(403).json({message: 'You are not authorized to perform this action'});
     }
     const admins = await Admin.find().select('-password');

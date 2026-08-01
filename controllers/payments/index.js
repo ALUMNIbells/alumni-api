@@ -340,7 +340,7 @@ export const reVerifyPaymentMass = async (req, res) => {
 
 export const getAllTransactions = async (req, res) => {
   try {
-    if(req.user.role !== 'admin'){
+    if(req.user.role !== 'admin' && req.user.role !== 'super-admin'){
       return res.status(403).json({ message: 'Unauthorized' });
     }
     if(req.query.type){
@@ -363,7 +363,7 @@ export const markSouvenirCollected = async (req, res) => {
   const { transactionId, sku } = req.params;
 
   try {
-    if (req.user.role !== "admin") {
+    if (req.user.role !== "admin" && req.user.role !== "super-admin") {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
