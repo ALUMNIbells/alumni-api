@@ -723,6 +723,7 @@ export const createJobPost = async (req, res) => {
       title: title.trim(),
       location: location.trim(),
       description: description.trim(),
+      verified: isSuperAdmin, // Auto-verify if created by super-admin
     });
 
     return res.status(201).json({
