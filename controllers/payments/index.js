@@ -14,7 +14,14 @@ import Student from "../../models/Student.js";
 
 const {RESEND_API_KEY} = listEnv();
 const resend = new Resend(RESEND_API_KEY); 
-
+const clearanceDuesTypes = ["ALUMNI CLEARANCE DUES",
+   "ALUMNI CLEARANCE DUES - MSC", 
+   "ALUMNI CLEARANCE DUES - M. ENG", 
+   "ALUMNI CLEARANCE DUES - M. PHIL", 
+   "ALUMNI CLEARANCE DUES - MBA", 
+   "ALUMNI CLEARANCE DUES - PGD", 
+   "ALUMNI CLEARANCE DUES - PHD"
+  ]
 
 export const initializePayment = async (req, res) => {
   const { matricNo, fullName, email, phone, type, college, course, sku, qty } = req.body;
@@ -109,7 +116,7 @@ export const initializePayment = async (req, res) => {
     }
 
     //Add free souvenir by default for alumni dues
-    if (type === "ALUMNI CLEARANCE DUES") {
+    if (clearanceDuesTypes.includes(type)) {
       const free = systemState.souvenirs?.find((s) => s.sku === "FREE" && s.active);
       if (free) {
         items.push({
