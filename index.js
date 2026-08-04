@@ -1,4 +1,5 @@
 import express from "express";
+import http from "http";
 import { getEnv, setEnv, removeEnv, listEnv, validateEnv, numberEnv } from 'swiftenv';
 import mongoose from "mongoose";
 import cors from "cors";
@@ -13,8 +14,10 @@ import logRoutes from "./routes/v1/log.js";
 import studentRoutes from "./routes/v1/students.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
+import { initializeSocket } from "./utils/socket.js";
 
 const app = express();
+const server = http.createServer(app);
 
 const connectDB = async () => {
     try {
@@ -32,7 +35,7 @@ const allowedOrigins = [
   'https://bellstechalumni-git-testing-ablesaxs-projects.vercel.app'
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -41,7 +44,11 @@ app.use(cors({
     }
   },
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+
+initializeSocket(server, corsOptions);
 
 app.use(express.json()); 
 app.use('/api/v1/payments', paymentRoutes);
@@ -55,7 +62,7 @@ app.use('/api/v1/logs', logRoutes);
 app.use('/api/v1/students', studentRoutes);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.listen(5000, () =>{
+server.listen(5000, () =>{
     console.log("Server started on port 5000")
     connectDB();
 });

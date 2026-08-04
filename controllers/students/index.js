@@ -3,7 +3,9 @@ import { Resend } from "resend";
 import { listEnv } from "swiftenv";
 import ConnectionRequest from "../../models/ConnectionRequest.js";
 import JobPost from "../../models/JobPost.js";
+import Message from "../../models/Message.js";
 import Student from "../../models/Student.js";
+import { ensureConnectedStudents, formatMessagePayload, getIo, getSocketRoom } from "../../utils/socket.js";
 import { connectionRequestTemplate } from "../../utils/emailTemplates.js";
 
 const { RESEND_API_KEY } = listEnv();
@@ -22,6 +24,8 @@ const REQUIRED_PROFILE_FIELDS = ["fullName", "phone"];
 
 const STUDENT_SUMMARY_FIELDS =
   "fullName email matricNo college course occupation imgurl description createdAt connections verified";
+
+const MESSAGE_PARTNER_FIELDS = "fullName email matricNo college course occupation imgurl verified";
 
 const parsePagination = (query) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
@@ -83,6 +87,126 @@ const formatStudentProfile = (student) => ({
   updatedAt: student.updatedAt,
   connectionsCount: student.connections?.length || 0,
 });
+
+const formatConversationPartner = (student) => ({
+  id: student._id,
+  fullName: student.fullName,
+  email: student.email,
+  matricNo: student.matricNo,
+  college: student.college,
+  course: student.course,
+  occupation: student.occupation,
+  imgurl: student.imgurl,
+});
+
+const normalizeMessageBody = (value) => (typeof value === "string" ? value.trim() : "");
+
+const createPartnerSearchMatch = (search) => {
+  if (!search?.trim()) {
+    return undefined;
+  }
+
+  const pattern = new RegExp(escapeRegex(search.trim()), "i");
+
+  return {
+    $or: [
+      { "partner.fullName": pattern },
+      { "partner.email": pattern },
+      { "partner.matricNo": pattern },
+      { "partner.college": pattern },
+      { "partner.course": pattern },
+      { "partner.occupation": pattern },
+    ],
+  };
+};
+
+const buildConversationPipeline = (studentId, search) => {
+  const currentStudentId = new mongoose.Types.ObjectId(studentId);
+  const pipeline = [
+    {
+      $match: {
+        $or: [{ sender: currentStudentId }, { recipient: currentStudentId }],
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    {
+      $addFields: {
+        partnerId: {
+          $cond: [{ $eq: ["$sender", currentStudentId] }, "$recipient", "$sender"],
+        },
+        unreadForCurrent: {
+          $cond: [
+            {
+              $and: [{ $eq: ["$recipient", currentStudentId] }, { $eq: ["$readAt", null] }],
+            },
+            1,
+            0,
+          ],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "$partnerId",
+        lastMessage: { $first: "$$ROOT" },
+        unreadCount: { $sum: "$unreadForCurrent" },
+      },
+    },
+    {
+      $lookup: {
+        from: "students",
+        localField: "_id",
+        foreignField: "_id",
+        as: "partner",
+      },
+    },
+    { $unwind: "$partner" },
+    {
+      $match: {
+        "partner.verified": true,
+      },
+    },
+  ];
+
+  const searchMatch = createPartnerSearchMatch(search);
+  if (searchMatch) {
+    pipeline.push({ $match: searchMatch });
+  }
+
+  return pipeline;
+};
+
+const emitCreatedMessage = (message) => {
+  const io = getIo();
+  if (!io) {
+    return;
+  }
+
+  io.to(getSocketRoom(String(message.recipient))).emit(
+    "message:new",
+    formatMessagePayload(message, message.recipient)
+  );
+  io.to(getSocketRoom(String(message.sender))).emit(
+    "message:sent",
+    formatMessagePayload(message, message.sender)
+  );
+};
+
+const emitReadReceipt = (currentStudentId, partnerId, readAt) => {
+  const io = getIo();
+  if (!io) {
+    return;
+  }
+
+  io.to(getSocketRoom(String(partnerId))).emit("message:read", {
+    partnerId: String(currentStudentId),
+    readAt,
+  });
+  io.to(getSocketRoom(String(currentStudentId))).emit("message:read", {
+    partnerId: String(partnerId),
+    readAt,
+  });
+};
 
 const buildStudentSearchMatch = (search) => {
   if (!search?.trim()) {
@@ -486,6 +610,186 @@ export const getConnections = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching connections:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getMessageConversations = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = req.query.search || req.query.q || "";
+    const pipeline = buildConversationPipeline(req.user.id, search);
+
+    const [conversationRows, totalRows] = await Promise.all([
+      Message.aggregate([
+        ...pipeline,
+        { $sort: { "lastMessage.createdAt": -1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      Message.aggregate([...pipeline, { $count: "total" }]),
+    ]);
+
+    const total = totalRows[0]?.total || 0;
+    const data = conversationRows.map((row) => ({
+      partner: formatConversationPartner(row.partner),
+      lastMessage: formatMessagePayload(row.lastMessage, req.user.id),
+      unreadCount: row.unreadCount,
+    }));
+
+    return res.status(200).json({
+      message: "Conversations retrieved successfully",
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getConversationMessages = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { studentId } = req.params;
+    const { page, limit, skip } = parsePagination(req.query);
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    const permission = await ensureConnectedStudents(req.user.id, studentId);
+    if (!permission.allowed) {
+      return res.status(permission.status).json({ message: permission.message });
+    }
+
+    const query = {
+      $or: [
+        { sender: req.user.id, recipient: studentId },
+        { sender: studentId, recipient: req.user.id },
+      ],
+    };
+
+    const [partner, messages, total] = await Promise.all([
+      Student.findById(studentId).select(MESSAGE_PARTNER_FIELDS).lean(),
+      Message.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Message.countDocuments(query),
+    ]);
+
+    return res.status(200).json({
+      message: "Messages retrieved successfully",
+      partner: formatConversationPartner(partner),
+      data: messages.map((message) => formatMessagePayload(message, req.user.id)),
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching conversation messages:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const sendStudentMessage = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { studentId } = req.params;
+    const body = normalizeMessageBody(req.body.body);
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    if (studentId === req.user.id) {
+      return res.status(400).json({ message: "You cannot message yourself" });
+    }
+
+    if (!body) {
+      return res.status(400).json({ message: "Message body is required" });
+    }
+
+    const permission = await ensureConnectedStudents(req.user.id, studentId);
+    if (!permission.allowed) {
+      return res.status(permission.status).json({ message: permission.message });
+    }
+
+    const message = await Message.create({
+      sender: req.user.id,
+      recipient: studentId,
+      body,
+    });
+
+    emitCreatedMessage(message);
+
+    return res.status(201).json({
+      message: "Message sent successfully",
+      data: formatMessagePayload(message, req.user.id),
+    });
+  } catch (error) {
+    console.error("Error sending student message:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const markConversationAsRead = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { studentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    const permission = await ensureConnectedStudents(req.user.id, studentId);
+    if (!permission.allowed) {
+      return res.status(permission.status).json({ message: permission.message });
+    }
+
+    const readAt = new Date();
+    const result = await Message.updateMany(
+      {
+        sender: studentId,
+        recipient: req.user.id,
+        readAt: null,
+      },
+      {
+        $set: { readAt },
+      }
+    );
+
+    emitReadReceipt(req.user.id, studentId, readAt);
+
+    return res.status(200).json({
+      message: "Messages marked as read successfully",
+      data: {
+        partnerId: studentId,
+        updatedCount: result.modifiedCount,
+        readAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

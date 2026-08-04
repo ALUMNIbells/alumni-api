@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alumni Realtime Messaging Tester</title>
+  <style>
+    :root {
+      --bg: #f8f6ef;
+      --bg-soft: #ece7d8;
+      --panel: #fffdf8;
+      --ink: #1f1b16;
+      --muted: #736a5d;
+      --brand: #0f766e;
+      --brand-strong: #115e59;
+      --accent: #b45309;
+      --danger: #b91c1c;
+      --line: #d8ccb7;
+      --bubble-out: #0f766e;
+      --bubble-in: #e8e0cf;
+      --ok: #166534;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #fef3c7 0%, transparent 26%),
+        radial-gradient(circle at 90% 88%, #d1fae5 0%, transparent 25%),
+        linear-gradient(145deg, #f5f2e8 0%, #ece6d8 100%);
+      padding: 20px;
+    }
+
+    .layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 340px 1fr 320px;
+      gap: 16px;
+      min-height: calc(100vh - 40px);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 16px 35px rgba(22, 22, 20, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(120deg, #f3e8c7, #f9f6ec);
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child {
+      border-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #cbbda7;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 14px;
+      outline: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 84px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+    }
+
+    .row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .row-3 {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    button {
+      border: 0;
+      background: var(--brand);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    button:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: #f4efe4;
+      color: #3a3027;
+      border: 1px solid #d8ccb7;
+    }
+
+    button.warn {
+      background: var(--accent);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status strong {
+      color: var(--ink);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      margin-top: 8px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #777;
+    }
+
+    .dot.ok {
+      background: #22c55e;
+    }
+
+    .dot.err {
+      background: #ef4444;
+    }
+
+    .lists-wrap {
+      display: grid;
+      gap: 14px;
+      grid-template-rows: 1fr 1fr;
+      min-height: 0;
+      flex: 1;
+      padding: 14px;
+    }
+
+    .list-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #fffcf5;
+    }
+
+    .list-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .item {
+      padding: 11px 12px;
+      border-bottom: 1px solid #eee5d3;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .item:hover {
+      background: #f8f3e8;
+    }
+
+    .item.active {
+      background: #dcfce7;
+      border-left: 4px solid var(--brand);
+      padding-left: 8px;
+    }
+
+    .meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .meta .name {
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .meta .sub {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 220px;
+    }
+
+    .badge {
+      min-width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      background: #dc2626;
+      padding: 0 6px;
+    }
+
+    .chat-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(120deg, #d9f8ed, #f4f2e8);
+    }
+
+    .chat-head .title {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .chat-head .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.68)),
+        repeating-linear-gradient(0deg, transparent, transparent 22px, #f6efdf 22px, #f6efdf 23px);
+    }
+
+    .msg {
+      max-width: 72%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      animation: fade-in 180ms ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.in {
+      align-self: flex-start;
+      background: var(--bubble-in);
+      border: 1px solid #d8ccb7;
+      color: #3a2f22;
+    }
+
+    .msg.out {
+      align-self: flex-end;
+      background: var(--bubble-out);
+      color: #ffffff;
+    }
+
+    .msg .small {
+      display: block;
+      margin-top: 6px;
+      font-size: 11px;
+      opacity: 0.88;
+    }
+
+    .composer {
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: #f9f6ee;
+      display: grid;
+      gap: 10px;
+    }
+
+    .composer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .events {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+      flex: 1;
+      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      background: #141414;
+      color: #d4f1db;
+    }
+
+    .events li {
+      padding: 8px 10px;
+      border-bottom: 1px solid #222;
+    }
+
+    .events .time {
+      color: #facc15;
+      margin-right: 6px;
+    }
+
+    .empty {
+      padding: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #e7f8ef;
+      color: var(--ok);
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #bde7cc;
+    }
+
+    @media (max-width: 1080px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .lists-wrap {
+        grid-template-rows: auto auto;
+      }
+
+      .panel {
+        min-height: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel">
+      <div class="panel-header">Auth + Socket</div>
+
+      <div class="section">
+        <label for="baseUrl">API Base URL</label>
+        <input id="baseUrl" value="http://localhost:5000" />
+      </div>
+
+      <div class="section">
+        <div class="row">
+          <div>
+            <label for="email">Email</label>
+            <input id="email" placeholder="student@example.com" />
+          </div>
+          <div>
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="password" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button id="loginBtn">Login</button>
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+        <div class="status" id="authStatus">Not authenticated</div>
+      </div>
+
+      <div class="section">
+        <div class="row">
+          <button id="connectSocketBtn">Connect Socket</button>
+          <button id="disconnectSocketBtn" class="secondary">Disconnect Socket</button>
+        </div>
+        <div class="pill"><span class="dot" id="socketDot"></span><span id="socketStatus">Socket disconnected</span></div>
+      </div>
+
+      <div class="section">
+        <div class="row-3">
+          <button id="loadConnectionsBtn" class="secondary">Connections</button>
+          <button id="loadConversationsBtn" class="secondary">Conversations</button>
+          <button id="refreshActiveChatBtn" class="secondary">Messages</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <label for="searchConnections">Search Connections</label>
+        <input id="searchConnections" placeholder="name, email, college..." />
+        <label for="searchConversations" style="margin-top:10px;">Search Conversations</label>
+        <input id="searchConversations" placeholder="name, email, course..." />
+      </div>
+    </aside>
+
+    <section class="panel">
+      <div class="chat-head">
+        <div>
+          <div class="title" id="chatTitle">Select a conversation</div>
+          <div class="sub" id="chatSub">Choose from connections or conversations</div>
+        </div>
+        <div id="activePartnerFlag"></div>
+      </div>
+
+      <div class="chat-messages" id="messages"></div>
+
+      <div class="composer">
+        <label for="messageBody">Message Body</label>
+        <textarea id="messageBody" placeholder="Type your message"></textarea>
+
+        <div class="row">
+          <div>
+            <label for="sendMode">Send Mode</label>
+            <select id="sendMode">
+              <option value="socket">Socket Emit (message:send)</option>
+              <option value="rest">REST POST /students/messages/:id</option>
+            </select>
+          </div>
+          <div>
+            <label for="readMode">Mark Read Mode</label>
+            <select id="readMode">
+              <option value="socket">Socket Emit (message:read)</option>
+              <option value="rest">REST PATCH /students/messages/:id/read</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="composer-actions">
+          <button id="sendBtn">Send Message</button>
+          <button id="markReadBtn" class="warn">Mark Read</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-header">Connections, Conversations, Events</div>
+
+      <div class="lists-wrap">
+        <div class="list-card">
+          <div class="list-head">
+            <span>Connections</span>
+            <span id="connectionsCount">0</span>
+          </div>
+          <ul class="list" id="connectionsList"></ul>
+        </div>
+
+        <div class="list-card">
+          <div class="list-head">
+            <span>Conversations</span>
+            <span id="conversationsCount">0</span>
+          </div>
+          <ul class="list" id="conversationsList"></ul>
+        </div>
+      </div>
+
+      <div class="panel-header" style="border-top:1px solid var(--line); border-bottom:1px solid var(--line);">Socket + API Event Log</div>
+      <ul class="events" id="eventLog"></ul>
+    </aside>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  <script>
+    const state = {
+      token: "",
+      user: null,
+      socket: null,
+      activePartner: null,
+      connections: [],
+      conversations: [],
+      messagesByPartner: {},
+    };
+
+    const el = {
+      baseUrl: document.getElementById("baseUrl"),
+      email: document.getElementById("email"),
+      password: document.getElementById("password"),
+      loginBtn: document.getElementById("loginBtn"),
+      logoutBtn: document.getElementById("logoutBtn"),
+      authStatus: document.getElementById("authStatus"),
+      connectSocketBtn: document.getElementById("connectSocketBtn"),
+      disconnectSocketBtn: document.getElementById("disconnectSocketBtn"),
+      socketDot: document.getElementById("socketDot"),
+      socketStatus: document.getElementById("socketStatus"),
+      loadConnectionsBtn: document.getElementById("loadConnectionsBtn"),
+      loadConversationsBtn: document.getElementById("loadConversationsBtn"),
+      refreshActiveChatBtn: document.getElementById("refreshActiveChatBtn"),
+      searchConnections: document.getElementById("searchConnections"),
+      searchConversations: document.getElementById("searchConversations"),
+      connectionsList: document.getElementById("connectionsList"),
+      conversationsList: document.getElementById("conversationsList"),
+      connectionsCount: document.getElementById("connectionsCount"),
+      conversationsCount: document.getElementById("conversationsCount"),
+      chatTitle: document.getElementById("chatTitle"),
+      chatSub: document.getElementById("chatSub"),
+      activePartnerFlag: document.getElementById("activePartnerFlag"),
+      messages: document.getElementById("messages"),
+      messageBody: document.getElementById("messageBody"),
+      sendBtn: document.getElementById("sendBtn"),
+      markReadBtn: document.getElementById("markReadBtn"),
+      sendMode: document.getElementById("sendMode"),
+      readMode: document.getElementById("readMode"),
+      eventLog: document.getElementById("eventLog"),
+    };
+
+    function now() {
+      return new Date().toLocaleTimeString();
+    }
+
+    function logEvent(label, data) {
+      const li = document.createElement("li");
+      const payload = data ? " " + JSON.stringify(data) : "";
+      li.innerHTML = '<span class="time">[' + now() + ']</span>' + label + payload;
+      el.eventLog.prepend(li);
+    }
+
+    function normalizeBaseUrl() {
+      return (el.baseUrl.value || "").trim().replace(/\/$/, "") || "http://localhost:5000";
+    }
+
+    function apiUrl(path, query) {
+      const url = new URL(normalizeBaseUrl() + path);
+      if (query && typeof query === "object") {
+        Object.entries(query).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            url.searchParams.set(key, value);
+          }
+        });
+      }
+      return url.toString();
+    }
+
+    function authHeaders() {
+      return {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + state.token,
+      };
+    }
+
+    async function request(path, options = {}, query) {
+      const res = await fetch(apiUrl(path, query), options);
+      let json = {};
+      try {
+        json = await res.json();
+      } catch (err) {
+        json = {};
+      }
+
+      if (!res.ok) {
+        const message = json.message || "Request failed";
+        throw new Error(message + " (" + res.status + ")");
+      }
+
+      return json;
+    }
+
+    function setAuthStatus() {
+      if (!state.token || !state.user) {
+        el.authStatus.innerHTML = "Not authenticated";
+        return;
+      }
+      el.authStatus.innerHTML = "Signed in as <strong>" + state.user.fullName + "</strong> (" + state.user.email + ")";
+    }
+
+    function setSocketStatus(connected, text) {
+      el.socketDot.className = "dot " + (connected ? "ok" : "err");
+      el.socketStatus.textContent = text;
+    }
+
+    function clearMessagesView(text) {
+      el.messages.innerHTML = "";
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = text;
+      el.messages.appendChild(empty);
+    }
+
+    function getStudentId(student) {
+      return String(student.id || student._id || "");
+    }
+
+    function getStudentName(student) {
+      return student.fullName || student.email || "Unknown";
+    }
+
+    function getStudentSubtitle(student) {
+      const parts = [student.email, student.matricNo, student.college, student.course].filter(Boolean);
+      return parts.join(" | ");
+    }
+
+    function setActivePartner(student) {
+      if (!student) {
+        state.activePartner = null;
+        el.chatTitle.textContent = "Select a conversation";
+        el.chatSub.textContent = "Choose from connections or conversations";
+        el.activePartnerFlag.innerHTML = "";
+        clearMessagesView("No conversation selected yet");
+        highlightActiveLists();
+        return;
+      }
+
+      state.activePartner = {
+        id: getStudentId(student),
+        fullName: getStudentName(student),
+        email: student.email || "",
+        matricNo: student.matricNo || "",
+        college: student.college || "",
+        course: student.course || "",
+      };
+
+      el.chatTitle.textContent = state.activePartner.fullName;
+      el.chatSub.textContent = [state.activePartner.email, state.activePartner.matricNo].filter(Boolean).join(" | ") || "Conversation";
+      el.activePartnerFlag.innerHTML = '<span class="chip">Connected Student</span>';
+      highlightActiveLists();
+      loadConversationMessages(state.activePartner.id);
+    }
+
+    function highlightActiveLists() {
+      const activeId = state.activePartner ? state.activePartner.id : "";
+      [el.connectionsList, el.conversationsList].forEach((listEl) => {
+        listEl.querySelectorAll(".item").forEach((node) => {
+          const isActive = node.dataset.id === activeId;
+          node.classList.toggle("active", isActive);
+        });
+      });
+    }
+
+    function renderConnections() {
+      el.connectionsList.innerHTML = "";
+      el.connectionsCount.textContent = String(state.connections.length);
+
+      if (!state.connections.length) {
+        el.connectionsList.innerHTML = '<li class="empty">No accepted connections found</li>';
+        return;
+      }
+
+      state.connections.forEach((student) => {
+        const id = getStudentId(student);
+        const item = document.createElement("li");
+        item.className = "item";
+        item.dataset.id = id;
+        item.innerHTML =
+          '<div class="meta"><div class="name">' +
+          escapeHtml(getStudentName(student)) +
+          '</div><div class="sub">' +
+          escapeHtml(getStudentSubtitle(student)) +
+          "</div></div>";
+        item.addEventListener("click", () => setActivePartner(student));
+        el.connectionsList.appendChild(item);
+      });
+
+      highlightActiveLists();
+    }
+
+    function renderConversations() {
+      el.conversationsList.innerHTML = "";
+      el.conversationsCount.textContent = String(state.conversations.length);
+
+      if (!state.conversations.length) {
+        el.conversationsList.innerHTML = '<li class="empty">No conversations yet</li>';
+        return;
+      }
+
+      state.conversations.forEach((row) => {
+        const partner = row.partner || {};
+        const id = getStudentId(partner);
+        const unread = Number(row.unreadCount || 0);
+
+        const item = document.createElement("li");
+        item.className = "item";
+        item.dataset.id = id;
+
+        const last = row.lastMessage && row.lastMessage.body ? row.lastMessage.body : "No messages";
+
+        item.innerHTML =
+          '<div class="meta"><div class="name">' +
+          escapeHtml(getStudentName(partner)) +
+          '</div><div class="sub">' +
+          escapeHtml(last) +
+          "</div></div>" +
+          (unread > 0 ? '<span class="badge">' + unread + "</span>" : "");
+
+        item.addEventListener("click", () => setActivePartner(partner));
+        el.conversationsList.appendChild(item);
+      });
+
+      highlightActiveLists();
+    }
+
+    function renderMessages(partnerId) {
+      const list = state.messagesByPartner[partnerId] || [];
+      el.messages.innerHTML = "";
+
+      if (!list.length) {
+        clearMessagesView("No messages yet with this student");
+        return;
+      }
+
+      list.forEach((msg) => {
+        const item = document.createElement("div");
+        const outgoing = msg.direction === "sent" || String(msg.sender) === String(state.user?.id);
+        item.className = "msg " + (outgoing ? "out" : "in");
+
+        const readText = outgoing
+          ? (msg.readAt ? "Read " + formatDate(msg.readAt) : "Delivered")
+          : (msg.readAt ? "Read" : "Unread");
+
+        item.innerHTML =
+          escapeHtml(msg.body || "") +
+          '<span class="small">' +
+          formatDate(msg.createdAt) +
+          " | " +
+          readText +
+          "</span>";
+
+        el.messages.appendChild(item);
+      });
+
+      el.messages.scrollTop = el.messages.scrollHeight;
+    }
+
+    function upsertConversationFromMessage(message) {
+      if (!state.user) {
+        return;
+      }
+
+      const partnerId = String(message.sender) === String(state.user.id)
+        ? String(message.recipient)
+        : String(message.sender);
+
+      const partnerFromConnections = state.connections.find((student) => getStudentId(student) === partnerId);
+      const existing = state.conversations.find((row) => getStudentId(row.partner || {}) === partnerId);
+      const row = existing || {
+        partner: partnerFromConnections || { id: partnerId, fullName: "Student " + partnerId.slice(-6) },
+        lastMessage: null,
+        unreadCount: 0,
+      };
+
+      row.lastMessage = message;
+
+      if (String(message.recipient) === String(state.user.id) && !message.readAt) {
+        const isActive = state.activePartner && state.activePartner.id === partnerId;
+        if (!isActive) {
+          row.unreadCount = Number(row.unreadCount || 0) + 1;
+        }
+      }
+
+      if (!existing) {
+        state.conversations.unshift(row);
+      }
+
+      state.conversations = state.conversations
+        .filter((entry) => getStudentId(entry.partner || {}) !== partnerId || entry === row)
+        .sort((a, b) => {
+          const aDate = new Date(a.lastMessage?.createdAt || 0).getTime();
+          const bDate = new Date(b.lastMessage?.createdAt || 0).getTime();
+          return bDate - aDate;
+        });
+
+      renderConversations();
+    }
+
+    function attachMessageToPartner(message) {
+      if (!state.user) {
+        return;
+      }
+
+      const partnerId = String(message.sender) === String(state.user.id)
+        ? String(message.recipient)
+        : String(message.sender);
+
+      if (!state.messagesByPartner[partnerId]) {
+        state.messagesByPartner[partnerId] = [];
+      }
+
+      const exists = state.messagesByPartner[partnerId].some((m) => String(m.id) === String(message.id));
+      if (!exists) {
+        state.messagesByPartner[partnerId].push(message);
+        state.messagesByPartner[partnerId].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      }
+
+      upsertConversationFromMessage(message);
+
+      if (state.activePartner && state.activePartner.id === partnerId) {
+        renderMessages(partnerId);
+      }
+    }
+
+    function applyReadReceipt(partnerId, readAt) {
+      const list = state.messagesByPartner[partnerId] || [];
+      list.forEach((msg) => {
+        if (String(msg.sender) === String(state.user?.id) && String(msg.recipient) === String(partnerId) && !msg.readAt) {
+          msg.readAt = readAt;
+          msg.isRead = true;
+        }
+      });
+
+      const convo = state.conversations.find((row) => getStudentId(row.partner || {}) === String(partnerId));
+      if (convo) {
+        convo.unreadCount = 0;
+      }
+
+      renderConversations();
+
+      if (state.activePartner && state.activePartner.id === String(partnerId)) {
+        renderMessages(partnerId);
+      }
+    }
+
+    async function login() {
+      const email = (el.email.value || "").trim();
+      const password = el.password.value || "";
+
+      if (!email || !password) {
+        alert("Email and password are required");
+        return;
+      }
+
+      try {
+        const payload = await request("/api/v1/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        state.token = payload.token;
+        state.user = payload.user;
+        setAuthStatus();
+        logEvent("LOGIN_OK", { userId: state.user.id, email: state.user.email });
+        await Promise.all([loadConnections(), loadConversations()]);
+      } catch (err) {
+        logEvent("LOGIN_ERROR", { error: err.message });
+        alert(err.message);
+      }
+    }
+
+    function logout() {
+      disconnectSocket();
+      state.token = "";
+      state.user = null;
+      state.activePartner = null;
+      state.connections = [];
+      state.conversations = [];
+      state.messagesByPartner = {};
+      setAuthStatus();
+      renderConnections();
+      renderConversations();
+      clearMessagesView("Logged out");
+      logEvent("LOGOUT");
+    }
+
+    async function loadConnections() {
+      if (!state.token) {
+        alert("Login first");
+        return;
+      }
+
+      try {
+        const payload = await request(
+          "/api/v1/students/connections",
+          {
+            method: "GET",
+            headers: authHeaders(),
+          },
+          {
+            page: 1,
+            limit: 50,
+            search: el.searchConnections.value.trim(),
+          }
+        );
+
+        state.connections = Array.isArray(payload.data) ? payload.data : [];
+        renderConnections();
+        logEvent("CONNECTIONS_OK", { total: state.connections.length });
+      } catch (err) {
+        logEvent("CONNECTIONS_ERROR", { error: err.message });
+        alert(err.message);
+      }
+    }
+
+    async function loadConversations() {
+      if (!state.token) {
+        alert("Login first");
+        return;
+      }
+
+      try {
+        const payload = await request(
+          "/api/v1/students/messages/conversations",
+          {
+            method: "GET",
+            headers: authHeaders(),
+          },
+          {
+            page: 1,
+            limit: 50,
+            search: el.searchConversations.value.trim(),
+          }
+        );
+
+        state.conversations = Array.isArray(payload.data) ? payload.data : [];
+        renderConversations();
+        logEvent("CONVERSATIONS_OK", { total: state.conversations.length });
+      } catch (err) {
+        logEvent("CONVERSATIONS_ERROR", { error: err.message });
+        alert(err.message);
+      }
+    }
+
+    async function loadConversationMessages(partnerId) {
+      if (!state.token) {
+        alert("Login first");
+        return;
+      }
+
+      if (!partnerId) {
+        return;
+      }
+
+      try {
+        const payload = await request(
+          "/api/v1/students/messages/" + partnerId,
+          {
+            method: "GET",
+            headers: authHeaders(),
+          },
+          { page: 1, limit: 50 }
+        );
+
+        const data = Array.isArray(payload.data) ? payload.data : [];
+        state.messagesByPartner[partnerId] = data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        renderMessages(partnerId);
+
+        logEvent("MESSAGES_OK", { partnerId, total: data.length });
+
+        if (el.readMode.value === "socket") {
+          emitReadReceiptSocket(partnerId, false);
+        } else {
+          await markReadRest(partnerId, false);
+        }
+      } catch (err) {
+        logEvent("MESSAGES_ERROR", { partnerId, error: err.message });
+        clearMessagesView("Unable to load messages: " + err.message);
+      }
+    }
+
+    function connectSocket() {
+      if (!state.token) {
+        alert("Login first to get a token");
+        return;
+      }
+
+      if (typeof io !== "function") {
+        alert("Socket.IO client is not loaded. Check internet/CDN access.");
+        return;
+      }
+
+      if (state.socket && state.socket.connected) {
+        logEvent("SOCKET_ALREADY_CONNECTED");
+        return;
+      }
+
+      if (state.socket) {
+        state.socket.removeAllListeners();
+        state.socket.disconnect();
+      }
+
+      state.socket = io(normalizeBaseUrl(), {
+        auth: {
+          token: "Bearer " + state.token,
+        },
+        transports: ["websocket", "polling"],
+      });
+
+      state.socket.on("connect", () => {
+        setSocketStatus(true, "Socket connected: " + state.socket.id);
+        logEvent("SOCKET_CONNECT", { socketId: state.socket.id });
+      });
+
+      state.socket.on("disconnect", (reason) => {
+        setSocketStatus(false, "Socket disconnected: " + reason);
+        logEvent("SOCKET_DISCONNECT", { reason });
+      });
+
+      state.socket.on("connect_error", (error) => {
+        setSocketStatus(false, "Socket connect error");
+        logEvent("SOCKET_CONNECT_ERROR", { error: error.message });
+      });
+
+      state.socket.on("message:new", (payload) => {
+        logEvent("EVENT message:new", payload);
+        attachMessageToPartner(payload);
+
+        const partnerId = String(payload.sender);
+        if (state.activePartner && state.activePartner.id === partnerId) {
+          emitReadReceiptSocket(partnerId, true);
+        }
+      });
+
+      state.socket.on("message:sent", (payload) => {
+        logEvent("EVENT message:sent", payload);
+        attachMessageToPartner(payload);
+      });
+
+      state.socket.on("message:read", (payload) => {
+        logEvent("EVENT message:read", payload);
+        applyReadReceipt(String(payload.partnerId), payload.readAt || new Date().toISOString());
+      });
+    }
+
+    function disconnectSocket() {
+      if (state.socket) {
+        state.socket.removeAllListeners();
+        state.socket.disconnect();
+        state.socket = null;
+      }
+      setSocketStatus(false, "Socket disconnected");
+    }
+
+    async function sendMessage() {
+      if (!state.activePartner) {
+        alert("Select a connection or conversation first");
+        return;
+      }
+
+      const body = (el.messageBody.value || "").trim();
+      if (!body) {
+        alert("Message body is required");
+        return;
+      }
+
+      const partnerId = state.activePartner.id;
+
+      if (el.sendMode.value === "socket") {
+        sendMessageSocket(partnerId, body);
+      } else {
+        await sendMessageRest(partnerId, body);
+      }
+    }
+
+    function sendMessageSocket(partnerId, body) {
+      if (!state.socket || !state.socket.connected) {
+        alert("Socket is not connected. Switch Send Mode to REST or connect socket.");
+        return;
+      }
+
+      state.socket.emit("message:send", { recipientId: partnerId, body }, (ack) => {
+        if (!ack || !ack.ok) {
+          logEvent("EMIT message:send ERROR", ack || { message: "Unknown socket error" });
+          alert((ack && ack.message) || "Unable to send message");
+          return;
+        }
+
+        logEvent("EMIT message:send OK", ack);
+        attachMessageToPartner(ack.data);
+        el.messageBody.value = "";
+      });
+    }
+
+    async function sendMessageRest(partnerId, body) {
+      try {
+        const payload = await request("/api/v1/students/messages/" + partnerId, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ body }),
+        });
+
+        logEvent("REST POST /messages/:id OK", payload);
+        if (payload.data) {
+          attachMessageToPartner(payload.data);
+        }
+        el.messageBody.value = "";
+      } catch (err) {
+        logEvent("REST POST /messages/:id ERROR", { error: err.message });
+        alert(err.message);
+      }
+    }
+
+    function emitReadReceiptSocket(partnerId, showAlertOnError) {
+      if (!state.socket || !state.socket.connected) {
+        if (showAlertOnError) {
+          alert("Socket not connected. Use REST read mode or connect socket.");
+        }
+        return;
+      }
+
+      state.socket.emit("message:read", { partnerId }, (ack) => {
+        if (!ack || !ack.ok) {
+          logEvent("EMIT message:read ERROR", ack || { message: "Unknown socket error" });
+          if (showAlertOnError) {
+            alert((ack && ack.message) || "Unable to mark as read");
+          }
+          return;
+        }
+
+        logEvent("EMIT message:read OK", ack);
+        applyReadReceipt(String(ack.data.partnerId), ack.data.readAt || new Date().toISOString());
+      });
+    }
+
+    async function markReadRest(partnerId, showAlertOnError = true) {
+      try {
+        const payload = await request("/api/v1/students/messages/" + partnerId + "/read", {
+          method: "PATCH",
+          headers: authHeaders(),
+        });
+
+        logEvent("REST PATCH /messages/:id/read OK", payload);
+        const readAt = payload?.data?.readAt || new Date().toISOString();
+        applyReadReceipt(String(partnerId), readAt);
+      } catch (err) {
+        logEvent("REST PATCH /messages/:id/read ERROR", { error: err.message });
+        if (showAlertOnError) {
+          alert(err.message);
+        }
+      }
+    }
+
+    async function markRead() {
+      if (!state.activePartner) {
+        alert("Select a conversation first");
+        return;
+      }
+
+      if (el.readMode.value === "socket") {
+        emitReadReceiptSocket(state.activePartner.id, true);
+      } else {
+        await markReadRest(state.activePartner.id, true);
+      }
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "";
+      }
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) {
+        return String(value);
+      }
+      return d.toLocaleString();
+    }
+
+    function escapeHtml(input) {
+      return String(input || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    el.loginBtn.addEventListener("click", login);
+    el.logoutBtn.addEventListener("click", logout);
+    el.connectSocketBtn.addEventListener("click", connectSocket);
+    el.disconnectSocketBtn.addEventListener("click", disconnectSocket);
+    el.loadConnectionsBtn.addEventListener("click", loadConnections);
+    el.loadConversationsBtn.addEventListener("click", loadConversations);
+    el.refreshActiveChatBtn.addEventListener("click", () => {
+      if (!state.activePartner) {
+        alert("Select a conversation first");
+        return;
+      }
+      loadConversationMessages(state.activePartner.id);
+    });
+    el.sendBtn.addEventListener("click", sendMessage);
+    el.markReadBtn.addEventListener("click", markRead);
+
+    el.searchConnections.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        loadConnections();
+      }
+    });
+
+    el.searchConversations.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        loadConversations();
+      }
+    });
+
+    clearMessagesView("Login and select a partner to begin testing realtime chat");
+    setAuthStatus();
+    setSocketStatus(false, "Socket disconnected");
+    renderConnections();
+    renderConversations();
+    logEvent("READY", { message: "Messaging tester loaded" });
+  </script>
+</body>
+</html>

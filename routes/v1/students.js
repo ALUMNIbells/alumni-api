@@ -2,7 +2,7 @@
  * @swagger
  * tags:
  *   - name: Students
- *     description: Student profile, alumni connections, and jobs
+ *     description: Student profile, alumni connections, jobs, and messaging
  */
 
 /**
@@ -180,6 +180,98 @@
 
 /**
  * @swagger
+ * /students/messages/conversations:
+ *   get:
+ *     summary: Get the authenticated student's message conversations
+ *     tags: [Students]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search conversation partners by name, email, matric number, college, course, or occupation
+ *     responses:
+ *       200:
+ *         description: Conversations retrieved successfully
+ */
+
+/**
+ * @swagger
+ * /students/messages/{studentId}:
+ *   get:
+ *     summary: Get paginated messages exchanged with a connected student
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Messages retrieved successfully
+ *   post:
+ *     summary: Send a text message to a connected student
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - body
+ *             properties:
+ *               body:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       403:
+ *         description: Messaging is only allowed between connected students
+ */
+
+/**
+ * @swagger
+ * /students/messages/{studentId}/read:
+ *   patch:
+ *     summary: Mark unread messages from a connected student as read
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Messages marked as read successfully
+ */
+
+/**
+ * @swagger
  * /students/jobs:
  *   post:
  *     summary: Create a job post as an authenticated student
@@ -240,12 +332,16 @@ import {
   discoverStudents,
   getAllJobs,
   getAllStudents,
+  getConversationMessages,
   getConnections,
   getConnectionRequests,
   getJobFeed,
+  getMessageConversations,
   getMyJobs,
   getStudentProfile,
+  markConversationAsRead,
   rejectConnectionRequest,
+  sendStudentMessage,
   sendConnectionRequest,
   updateJobPost,
   updateStudentProfile,
@@ -264,6 +360,10 @@ router.post("/connections/requests/:studentId", verifyTken, sendConnectionReques
 router.patch("/connections/requests/:requestId/accept", verifyTken, acceptConnectionRequest);
 router.patch("/connections/requests/:requestId/reject", verifyTken, rejectConnectionRequest);
 router.delete("/connections/requests/:requestId/cancel", verifyTken, cancelSentConnectionRequest);
+router.get("/messages/conversations", verifyTken, getMessageConversations);
+router.get("/messages/:studentId", verifyTken, getConversationMessages);
+router.post("/messages/:studentId", verifyTken, sendStudentMessage);
+router.patch("/messages/:studentId/read", verifyTken, markConversationAsRead);
 router.post("/jobs", verifyTken, createJobPost);
 router.get("/jobs/feed", verifyTken, getJobFeed);
 router.get("/jobs/my", verifyTken, getMyJobs);
