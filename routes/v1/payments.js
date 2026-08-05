@@ -60,7 +60,7 @@ router.get('/verify-payment/:reference', VerifyPayment);
 router.get('/verify-payment', reVerifyPaymentMass);
 router.patch('/collect-souvenir/:transactionId/:sku', verifyTken, markSouvenirCollected)
 router.get('/transactions', verifyTken, getAllTransactions); 
-router.get('/:matricNo', verifyTken, getStudentTransactions);
+router.get('/:matricNo', getStudentTransactions);
 
 export default router;
 
