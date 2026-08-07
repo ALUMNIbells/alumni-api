@@ -614,6 +614,81 @@ export const getConnections = async (req, res) => {
   }
 };
 
+export const disconnectStudent = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { studentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    if (studentId === req.user.id) {
+      return res.status(400).json({ message: "You cannot remove connection with yourself" });
+    }
+
+    const [currentStudent, targetStudent] = await Promise.all([
+      Student.findById(req.user.id).select("_id connections").lean(),
+      Student.findById(studentId).select("_id connections verified").lean(),
+    ]);
+
+    if (!currentStudent) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!targetStudent || !targetStudent.verified) {
+      return res.status(404).json({ message: "Connected student not found" });
+    }
+
+    const isConnected = (currentStudent.connections || []).some(
+      (connectionId) => String(connectionId) === String(studentId)
+    );
+
+    if (!isConnected) {
+      return res.status(400).json({ message: "You are not connected with this student" });
+    }
+
+    await Promise.all([
+      Student.updateOne(
+        { _id: req.user.id },
+        { $pull: { connections: new mongoose.Types.ObjectId(studentId) } }
+      ),
+      Student.updateOne(
+        { _id: studentId },
+        { $pull: { connections: new mongoose.Types.ObjectId(req.user.id) } }
+      ),
+      ConnectionRequest.updateMany(
+        {
+          status: "accepted",
+          $or: [
+            { requester: req.user.id, recipient: studentId },
+            { requester: studentId, recipient: req.user.id },
+          ],
+        },
+        {
+          $set: {
+            status: "rejected",
+            respondedAt: new Date(),
+          },
+        }
+      ),
+    ]);
+
+    return res.status(200).json({
+      message: "Connection removed successfully",
+      data: {
+        studentId,
+      },
+    });
+  } catch (error) {
+    console.error("Error removing connection:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const getMessageConversations = async (req, res) => {
   try {
     if (!ensureStudentRole(req, res)) {
@@ -726,10 +801,10 @@ export const sendStudentMessage = async (req, res) => {
       return res.status(400).json({ message: "Message body is required" });
     }
 
-    const permission = await ensureConnectedStudents(req.user.id, studentId);
-    if (!permission.allowed) {
-      return res.status(permission.status).json({ message: permission.message });
-    }
+    // const permission = await ensureConnectedStudents(req.user.id, studentId);
+    // if (!permission.allowed) {
+    //   return res.status(permission.status).json({ message: permission.message });
+    // }
 
     const message = await Message.create({
       sender: req.user.id,

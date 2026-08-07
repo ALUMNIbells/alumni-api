@@ -97,6 +97,21 @@
  *     responses:
  *       200:
  *         description: Connections retrieved successfully
+ * /students/connections/{studentId}:
+ *   delete:
+ *     summary: Remove an existing connection between authenticated student and another student
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Connection removed successfully
+ *       400:
+ *         description: Invalid student id or not connected
  */
 
 /**
@@ -329,6 +344,7 @@ import {
   cancelSentConnectionRequest,
   createJobPost,
   deleteJobPost,
+  disconnectStudent,
   discoverStudents,
   getAllJobs,
   getAllStudents,
@@ -355,6 +371,7 @@ router.get("/profile", verifyTken, getStudentProfile);
 router.patch("/profile", verifyTken, updateStudentProfile);
 router.get("/discover", verifyTken, discoverStudents);
 router.get("/connections", verifyTken, getConnections);
+router.delete("/connections/:studentId", verifyTken, disconnectStudent);
 router.get("/connections/requests", verifyTken, getConnectionRequests);
 router.post("/connections/requests/:studentId", verifyTken, sendConnectionRequest);
 router.patch("/connections/requests/:requestId/accept", verifyTken, acceptConnectionRequest);
