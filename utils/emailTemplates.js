@@ -457,6 +457,21 @@ export const connectionRequestTemplate = ({
                         <p style="font-size: 15px; margin: 24px 0 0; color: #555; line-height: 1.6;">
                         Sign in to your alumni account to review and accept the request.
                         </p>
+                        <a
+                            href="https://www.bellsuniversityalumni.com/network"
+                            style="
+                            background-color: #0a66c2;
+                            color: #ffffff;
+                            padding: 14px 28px;
+                            border-radius: 6px;
+                            text-decoration: none;
+                            font-weight: 600;
+                            display: inline-block;
+                            "
+                        >
+                        View Connection
+                        </a
+                        
                     </td>
                     </tr>
 
