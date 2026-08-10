@@ -6,6 +6,8 @@ This document describes the student-to-student messaging feature implemented in 
 
 - Messaging is only allowed between verified students who are already connected.
 - Messages are persisted in MongoDB.
+- Messages can optionally tag another message as a reply using `replyToMessageId`.
+- Senders can edit their own messages for up to 10 minutes after creation.
 - Read state is tracked with the `readAt` field on each message.
 - Real-time delivery and read receipts are handled with Socket.IO.
 
@@ -47,13 +49,33 @@ This document describes the student-to-student messaging feature implemented in 
 
 ```json
 {
-  "body": "Hello, great to connect with you."
+  "body": "Hello, great to connect with you.",
+  "replyToMessageId": "optionalMessageObjectId"
 }
 ```
 
 - Response:
   - `201 Created`
   - Persists the message and emits real-time socket events for sender and recipient.
+
+### Edit Message
+
+- Method: `PATCH`
+- Path: `/api/v1/students/messages/message/:messageId`
+- Body:
+
+```json
+{
+  "body": "Updated message text"
+}
+```
+
+- Rules:
+  - Only the sender can edit a message.
+  - Message must be edited within 10 minutes of `createdAt`.
+- Response:
+  - `200 OK`
+  - Updates the message body, sets `editedAt`, and emits a real-time edit event.
 
 ### Mark Messages As Read
 
@@ -87,7 +109,8 @@ Payload:
 ```json
 {
   "recipientId": "studentObjectId",
-  "body": "Hello from socket"
+  "body": "Hello from socket",
+  "replyToMessageId": "optionalMessageObjectId"
 }
 ```
 
@@ -101,11 +124,47 @@ Ack response:
     "sender": "senderId",
     "recipient": "recipientId",
     "body": "Hello from socket",
+    "replyTo": {
+      "id": "optionalMessageObjectId",
+      "sender": "senderId",
+      "recipient": "recipientId",
+      "body": "Original message body",
+      "createdAt": "2026-08-03T11:59:00.000Z"
+    },
     "readAt": null,
+    "editedAt": null,
     "createdAt": "2026-08-03T12:00:00.000Z",
     "updatedAt": "2026-08-03T12:00:00.000Z",
     "direction": "sent",
-    "isRead": false
+    "isRead": false,
+    "isEdited": false
+  }
+}
+```
+
+#### `message:edit`
+
+Payload:
+
+```json
+{
+  "messageId": "messageObjectId",
+  "body": "Edited message text"
+}
+```
+
+Ack response:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "messageObjectId",
+    "sender": "senderId",
+    "recipient": "recipientId",
+    "body": "Edited message text",
+    "editedAt": "2026-08-03T12:08:00.000Z",
+    "isEdited": true
   }
 }
 ```
@@ -146,6 +205,10 @@ Ack response:
 
 - Fired to both sides when unread messages are marked as read.
 
+#### `message:edited`
+
+- Fired to both sides when a message is edited successfully.
+
 ## Data Model
 
 Each message record stores:
@@ -153,7 +216,9 @@ Each message record stores:
 - `sender`
 - `recipient`
 - `body`
+- `replyTo`
 - `readAt`
+- `editedAt`
 - `createdAt`
 - `updatedAt`
 

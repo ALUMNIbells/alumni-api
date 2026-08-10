@@ -20,7 +20,17 @@ const MessageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+      index: true,
+    },
     readAt: {
+      type: Date,
+      default: null,
+    },
+    editedAt: {
       type: Date,
       default: null,
     },

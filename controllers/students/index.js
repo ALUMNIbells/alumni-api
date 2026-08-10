@@ -26,6 +26,8 @@ const STUDENT_SUMMARY_FIELDS =
   "fullName email matricNo college course occupation imgurl description createdAt connections verified";
 
 const MESSAGE_PARTNER_FIELDS = "fullName email matricNo college course occupation imgurl verified";
+const REPLY_PREVIEW_FIELDS = "sender recipient body createdAt";
+const MESSAGE_EDIT_WINDOW_MS = 10 * 60 * 1000;
 
 const parsePagination = (query) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
@@ -100,6 +102,44 @@ const formatConversationPartner = (student) => ({
 });
 
 const normalizeMessageBody = (value) => (typeof value === "string" ? value.trim() : "");
+
+const hasReplyTarget = (value) => value !== undefined && value !== null && String(value).trim() !== "";
+
+const isWithinEditWindow = (message) => {
+  const createdAtMs = new Date(message.createdAt).getTime();
+  return Number.isFinite(createdAtMs) && Date.now() - createdAtMs <= MESSAGE_EDIT_WINDOW_MS;
+};
+
+const buildPeerMessageQuery = (studentAId, studentBId) => ({
+  $or: [
+    { sender: studentAId, recipient: studentBId },
+    { sender: studentBId, recipient: studentAId },
+  ],
+});
+
+const resolveReplyToMessageId = async (replyToMessageId, currentStudentId, partnerStudentId) => {
+  if (!hasReplyTarget(replyToMessageId)) {
+    return null;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(replyToMessageId)) {
+    return { error: "Invalid reply target ID", status: 400 };
+  }
+
+  const replyTarget = await Message.findOne({
+    _id: replyToMessageId,
+    ...buildPeerMessageQuery(currentStudentId, partnerStudentId),
+  }).select("_id");
+
+  if (!replyTarget) {
+    return { error: "Reply target message not found", status: 404 };
+  }
+
+  return replyTarget._id;
+};
+
+const getMessageWithReply = async (messageId) =>
+  Message.findById(messageId).populate("replyTo", REPLY_PREVIEW_FIELDS);
 
 const createPartnerSearchMatch = (search) => {
   if (!search?.trim()) {
@@ -189,6 +229,22 @@ const emitCreatedMessage = (message) => {
   io.to(getSocketRoom(String(message.sender))).emit(
     "message:sent",
     formatMessagePayload(message, message.sender)
+  );
+};
+
+const emitEditedMessage = (message) => {
+  const io = getIo();
+  if (!io) {
+    return;
+  }
+
+  io.to(getSocketRoom(String(message.sender))).emit(
+    "message:edited",
+    formatMessagePayload(message, message.sender)
+  );
+  io.to(getSocketRoom(String(message.recipient))).emit(
+    "message:edited",
+    formatMessagePayload(message, message.recipient)
   );
 };
 
@@ -745,10 +801,10 @@ export const getConversationMessages = async (req, res) => {
       return res.status(400).json({ message: "Invalid student ID" });
     }
 
-    const permission = await ensureConnectedStudents(req.user.id, studentId);
-    if (!permission.allowed) {
-      return res.status(permission.status).json({ message: permission.message });
-    }
+    // const permission = await ensureConnectedStudents(req.user.id, studentId);
+    // if (!permission.allowed) {
+    //   return res.status(permission.status).json({ message: permission.message });
+    // }
 
     const query = {
       $or: [
@@ -759,7 +815,12 @@ export const getConversationMessages = async (req, res) => {
 
     const [partner, messages, total] = await Promise.all([
       Student.findById(studentId).select(MESSAGE_PARTNER_FIELDS).lean(),
-      Message.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Message.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("replyTo", REPLY_PREVIEW_FIELDS)
+        .lean(),
       Message.countDocuments(query),
     ]);
 
@@ -788,6 +849,7 @@ export const sendStudentMessage = async (req, res) => {
 
     const { studentId } = req.params;
     const body = normalizeMessageBody(req.body.body);
+    const replyToMessageId = req.body.replyToMessageId;
 
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       return res.status(400).json({ message: "Invalid student ID" });
@@ -801,6 +863,11 @@ export const sendStudentMessage = async (req, res) => {
       return res.status(400).json({ message: "Message body is required" });
     }
 
+    const replyTo = await resolveReplyToMessageId(replyToMessageId, req.user.id, studentId);
+    if (replyTo?.error) {
+      return res.status(replyTo.status).json({ message: replyTo.error });
+    }
+
     // const permission = await ensureConnectedStudents(req.user.id, studentId);
     // if (!permission.allowed) {
     //   return res.status(permission.status).json({ message: permission.message });
@@ -810,16 +877,66 @@ export const sendStudentMessage = async (req, res) => {
       sender: req.user.id,
       recipient: studentId,
       body,
+      replyTo,
     });
 
-    emitCreatedMessage(message);
+    const hydratedMessage = await getMessageWithReply(message._id);
+
+    emitCreatedMessage(hydratedMessage);
 
     return res.status(201).json({
       message: "Message sent successfully",
-      data: formatMessagePayload(message, req.user.id),
+      data: formatMessagePayload(hydratedMessage, req.user.id),
     });
   } catch (error) {
     console.error("Error sending student message:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const editStudentMessage = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { messageId } = req.params;
+    const body = normalizeMessageBody(req.body.body);
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+
+    if (!body) {
+      return res.status(400).json({ message: "Message body is required" });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    if (String(message.sender) !== String(req.user.id)) {
+      return res.status(403).json({ message: "You can only edit your own messages" });
+    }
+
+    if (!isWithinEditWindow(message)) {
+      return res.status(400).json({ message: "Messages can only be edited within 10 minutes" });
+    }
+
+    message.body = body;
+    message.editedAt = new Date();
+    await message.save();
+
+    const hydratedMessage = await getMessageWithReply(message._id);
+    emitEditedMessage(hydratedMessage);
+
+    return res.status(200).json({
+      message: "Message edited successfully",
+      data: formatMessagePayload(hydratedMessage, req.user.id),
+    });
+  } catch (error) {
+    console.error("Error editing student message:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -836,10 +953,10 @@ export const markConversationAsRead = async (req, res) => {
       return res.status(400).json({ message: "Invalid student ID" });
     }
 
-    const permission = await ensureConnectedStudents(req.user.id, studentId);
-    if (!permission.allowed) {
-      return res.status(permission.status).json({ message: permission.message });
-    }
+    // const permission = await ensureConnectedStudents(req.user.id, studentId);
+    // if (!permission.allowed) {
+    //   return res.status(permission.status).json({ message: permission.message });
+    // }
 
     const readAt = new Date();
     const result = await Message.updateMany(

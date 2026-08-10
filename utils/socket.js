@@ -1,9 +1,13 @@
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { Server } from "socket.io";
 import Message from "../models/Message.js";
 import Student from "../models/Student.js";
 
 let io;
+
+const MESSAGE_EDIT_WINDOW_MS = 10 * 60 * 1000;
+const REPLY_PREVIEW_FIELDS = "sender recipient body createdAt";
 
 const getSocketRoom = (studentId) => `student:${studentId}`;
 
@@ -43,16 +47,56 @@ const ensureConnectedStudents = async (senderId, recipientId) => {
   return { allowed: true };
 };
 
+const normalizeMessageBody = (value) => (typeof value === "string" ? value.trim() : "");
+
+const isWithinEditWindow = (message) => {
+  const createdAtMs = new Date(message.createdAt).getTime();
+  return Number.isFinite(createdAtMs) && Date.now() - createdAtMs <= MESSAGE_EDIT_WINDOW_MS;
+};
+
+const buildPeerMessageQuery = (studentAId, studentBId) => ({
+  $or: [
+    { sender: studentAId, recipient: studentBId },
+    { sender: studentBId, recipient: studentAId },
+  ],
+});
+
+const formatReplyPayload = (replyTo) => {
+  if (!replyTo) {
+    return null;
+  }
+
+  if (typeof replyTo === "object" && (replyTo._id || replyTo.id)) {
+    return {
+      id: replyTo._id || replyTo.id,
+      sender: String(replyTo.sender),
+      recipient: String(replyTo.recipient),
+      body: replyTo.body,
+      createdAt: replyTo.createdAt,
+    };
+  }
+
+  return {
+    id: replyTo,
+  };
+};
+
+const getMessageWithReply = async (messageId) =>
+  Message.findById(messageId).populate("replyTo", REPLY_PREVIEW_FIELDS);
+
 const formatMessagePayload = (message, currentStudentId) => ({
   id: message._id,
   sender: String(message.sender),
   recipient: String(message.recipient),
   body: message.body,
+  replyTo: formatReplyPayload(message.replyTo),
   readAt: message.readAt,
+  editedAt: message.editedAt,
   createdAt: message.createdAt,
   updatedAt: message.updatedAt,
   direction: String(message.sender) === String(currentStudentId) ? "sent" : "received",
   isRead: Boolean(message.readAt),
+  isEdited: Boolean(message.editedAt),
 });
 
 export const initializeSocket = (httpServer, corsOptions) => {
@@ -89,7 +133,8 @@ export const initializeSocket = (httpServer, corsOptions) => {
     socket.on("message:send", async (payload = {}, callback = () => {}) => {
       try {
         const recipientId = payload.recipientId;
-        const body = typeof payload.body === "string" ? payload.body.trim() : "";
+        const body = normalizeMessageBody(payload.body);
+        const replyToMessageId = payload.replyToMessageId;
 
         if (!recipientId) {
           callback({ ok: false, message: "Recipient ID is required" });
@@ -101,20 +146,37 @@ export const initializeSocket = (httpServer, corsOptions) => {
           return;
         }
 
-        const permission = await ensureConnectedStudents(studentId, recipientId);
-        if (!permission.allowed) {
-          callback({ ok: false, message: permission.message });
-          return;
+        let replyTo = null;
+        if (replyToMessageId !== undefined && replyToMessageId !== null && replyToMessageId !== "") {
+          if (!mongoose.Types.ObjectId.isValid(replyToMessageId)) {
+            callback({ ok: false, message: "Invalid reply target ID" });
+            return;
+          }
+
+          const replyTarget = await Message.findOne({
+            _id: replyToMessageId,
+            ...buildPeerMessageQuery(studentId, recipientId),
+          }).select("_id");
+
+          if (!replyTarget) {
+            callback({ ok: false, message: "Reply target message not found" });
+            return;
+          }
+
+          replyTo = replyTarget._id;
         }
 
         const message = await Message.create({
           sender: studentId,
           recipient: recipientId,
           body,
+          replyTo,
         });
 
-        const senderPayload = formatMessagePayload(message, studentId);
-        const recipientPayload = formatMessagePayload(message, recipientId);
+        const hydratedMessage = await getMessageWithReply(message._id);
+
+        const senderPayload = formatMessagePayload(hydratedMessage, studentId);
+        const recipientPayload = formatMessagePayload(hydratedMessage, recipientId);
 
         io.to(getSocketRoom(recipientId)).emit("message:new", recipientPayload);
         io.to(getSocketRoom(studentId)).emit("message:sent", senderPayload);
@@ -123,6 +185,55 @@ export const initializeSocket = (httpServer, corsOptions) => {
       } catch (error) {
         console.error("Socket message send failed:", error);
         callback({ ok: false, message: "Unable to send message" });
+      }
+    });
+
+    socket.on("message:edit", async (payload = {}, callback = () => {}) => {
+      try {
+        const messageId = payload.messageId;
+        const body = normalizeMessageBody(payload.body);
+
+        if (!messageId) {
+          callback({ ok: false, message: "Message ID is required" });
+          return;
+        }
+
+        if (!body) {
+          callback({ ok: false, message: "Message body is required" });
+          return;
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+          callback({ ok: false, message: "Message not found" });
+          return;
+        }
+
+        if (String(message.sender) !== String(studentId)) {
+          callback({ ok: false, message: "You can only edit your own messages" });
+          return;
+        }
+
+        if (!isWithinEditWindow(message)) {
+          callback({ ok: false, message: "Messages can only be edited within 10 minutes" });
+          return;
+        }
+
+        message.body = body;
+        message.editedAt = new Date();
+        await message.save();
+
+        const hydratedMessage = await getMessageWithReply(message._id);
+        const senderPayload = formatMessagePayload(hydratedMessage, studentId);
+        const recipientPayload = formatMessagePayload(hydratedMessage, hydratedMessage.recipient);
+
+        io.to(getSocketRoom(String(hydratedMessage.sender))).emit("message:edited", senderPayload);
+        io.to(getSocketRoom(String(hydratedMessage.recipient))).emit("message:edited", recipientPayload);
+
+        callback({ ok: true, data: senderPayload });
+      } catch (error) {
+        console.error("Socket message edit failed:", error);
+        callback({ ok: false, message: "Unable to edit message" });
       }
     });
 

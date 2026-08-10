@@ -261,6 +261,9 @@
  *             properties:
  *               body:
  *                 type: string
+ *               replyToMessageId:
+ *                 type: string
+ *                 description: Optional message ID to tag this message as a reply
  *     responses:
  *       201:
  *         description: Message sent successfully
@@ -283,6 +286,38 @@
  *     responses:
  *       200:
  *         description: Messages marked as read successfully
+ */
+
+/**
+ * @swagger
+ * /students/messages/message/{messageId}:
+ *   patch:
+ *     summary: Edit a previously sent message within 10 minutes
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: messageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - body
+ *             properties:
+ *               body:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Message edited successfully
+ *       400:
+ *         description: Invalid message ID or edit window expired
+ *       403:
+ *         description: Only the sender can edit a message
  */
 
 /**
@@ -346,6 +381,7 @@ import {
   deleteJobPost,
   disconnectStudent,
   discoverStudents,
+  editStudentMessage,
   getAllJobs,
   getAllStudents,
   getConversationMessages,
@@ -381,6 +417,7 @@ router.get("/messages/conversations", verifyTken, getMessageConversations);
 router.get("/messages/:studentId", verifyTken, getConversationMessages);
 router.post("/messages/:studentId", verifyTken, sendStudentMessage);
 router.patch("/messages/:studentId/read", verifyTken, markConversationAsRead);
+router.patch("/messages/message/:messageId", verifyTken, editStudentMessage);
 router.post("/jobs", verifyTken, createJobPost);
 router.get("/jobs/feed", verifyTken, getJobFeed);
 router.get("/jobs/my", verifyTken, getMyJobs);
