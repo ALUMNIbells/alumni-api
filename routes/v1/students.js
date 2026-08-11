@@ -322,6 +322,27 @@
 
 /**
  * @swagger
+ * /students/messages/message/{messageId}:
+ *   delete:
+ *     summary: Delete a previously sent message within 24 hours
+ *     tags: [Students]
+ *     parameters:
+ *       - in: path
+ *         name: messageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Message deleted successfully
+ *       400:
+ *         description: Invalid message ID or delete window expired
+ *       403:
+ *         description: Only the sender can delete a message
+ */
+
+/**
+ * @swagger
  * /students/jobs:
  *   post:
  *     summary: Create a job post as an authenticated student
@@ -379,6 +400,7 @@ import {
   cancelSentConnectionRequest,
   createJobPost,
   deleteJobPost,
+  deleteStudentMessage,
   disconnectStudent,
   discoverStudents,
   editStudentMessage,
@@ -418,6 +440,7 @@ router.get("/messages/:studentId", verifyTken, getConversationMessages);
 router.post("/messages/:studentId", verifyTken, sendStudentMessage);
 router.patch("/messages/:studentId/read", verifyTken, markConversationAsRead);
 router.patch("/messages/message/:messageId", verifyTken, editStudentMessage);
+router.delete("/messages/message/:messageId", verifyTken, deleteStudentMessage);
 router.post("/jobs", verifyTken, createJobPost);
 router.get("/jobs/feed", verifyTken, getJobFeed);
 router.get("/jobs/my", verifyTken, getMyJobs);

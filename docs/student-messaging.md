@@ -8,6 +8,7 @@ This document describes the student-to-student messaging feature implemented in 
 - Messages are persisted in MongoDB.
 - Messages can optionally tag another message as a reply using `replyToMessageId`.
 - Senders can edit their own messages for up to 10 minutes after creation.
+- Senders can delete their own messages for up to 24 hours after creation.
 - Read state is tracked with the `readAt` field on each message.
 - Real-time delivery and read receipts are handled with Socket.IO.
 
@@ -76,6 +77,17 @@ This document describes the student-to-student messaging feature implemented in 
 - Response:
   - `200 OK`
   - Updates the message body, sets `editedAt`, and emits a real-time edit event.
+
+### Delete Message
+
+- Method: `DELETE`
+- Path: `/api/v1/students/messages/message/:messageId`
+- Rules:
+  - Only the sender can delete a message.
+  - Message must be deleted within 24 hours of `createdAt`.
+- Response:
+  - `200 OK`
+  - Deletes the message and emits a real-time delete event.
 
 ### Mark Messages As Read
 
@@ -208,6 +220,20 @@ Ack response:
 #### `message:edited`
 
 - Fired to both sides when a message is edited successfully.
+
+#### `message:deleted`
+
+- Fired to both sides when a message is deleted successfully.
+- Payload shape:
+
+```json
+{
+  "id": "messageObjectId",
+  "sender": "senderId",
+  "recipient": "recipientId",
+  "deletedAt": "2026-08-11T10:00:00.000Z"
+}
+```
 
 ## Data Model
 

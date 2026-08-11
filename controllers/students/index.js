@@ -28,6 +28,7 @@ const STUDENT_SUMMARY_FIELDS =
 const MESSAGE_PARTNER_FIELDS = "fullName email matricNo college course occupation imgurl verified";
 const REPLY_PREVIEW_FIELDS = "sender recipient body createdAt";
 const MESSAGE_EDIT_WINDOW_MS = 10 * 60 * 1000;
+const MESSAGE_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const parsePagination = (query) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
@@ -108,6 +109,11 @@ const hasReplyTarget = (value) => value !== undefined && value !== null && Strin
 const isWithinEditWindow = (message) => {
   const createdAtMs = new Date(message.createdAt).getTime();
   return Number.isFinite(createdAtMs) && Date.now() - createdAtMs <= MESSAGE_EDIT_WINDOW_MS;
+};
+
+const isWithinDeleteWindow = (message) => {
+  const createdAtMs = new Date(message.createdAt).getTime();
+  return Number.isFinite(createdAtMs) && Date.now() - createdAtMs <= MESSAGE_DELETE_WINDOW_MS;
 };
 
 const buildPeerMessageQuery = (studentAId, studentBId) => ({
@@ -246,6 +252,23 @@ const emitEditedMessage = (message) => {
     "message:edited",
     formatMessagePayload(message, message.recipient)
   );
+};
+
+const emitDeletedMessage = (message) => {
+  const io = getIo();
+  if (!io) {
+    return;
+  }
+
+  const payload = {
+    id: String(message._id),
+    sender: String(message.sender),
+    recipient: String(message.recipient),
+    deletedAt: new Date(),
+  };
+
+  io.to(getSocketRoom(String(message.sender))).emit("message:deleted", payload);
+  io.to(getSocketRoom(String(message.recipient))).emit("message:deleted", payload);
 };
 
 const emitReadReceipt = (currentStudentId, partnerId, readAt) => {
@@ -937,6 +960,46 @@ export const editStudentMessage = async (req, res) => {
     });
   } catch (error) {
     console.error("Error editing student message:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteStudentMessage = async (req, res) => {
+  try {
+    if (!ensureStudentRole(req, res)) {
+      return;
+    }
+
+    const { messageId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+
+    const message = await Message.findById(messageId).select("_id sender recipient createdAt");
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    if (String(message.sender) !== String(req.user.id)) {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+
+    if (!isWithinDeleteWindow(message)) {
+      return res.status(400).json({ message: "Messages can only be deleted within 24 hours" });
+    }
+
+    await Message.deleteOne({ _id: message._id });
+    emitDeletedMessage(message);
+
+    return res.status(200).json({
+      message: "Message deleted successfully",
+      data: {
+        id: String(message._id),
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting student message:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
