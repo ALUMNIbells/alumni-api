@@ -29,7 +29,7 @@ const options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ["./routes/**/*.js"], // where swagger will read comments from
+  apis: ["./routes/**/*.js", "./docs/**/*.md"], // where swagger will read comments from
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

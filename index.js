@@ -12,6 +12,7 @@ import newsletterRoutes from "./routes/v1/newsletter.js";
 import inquiryRoutes from "./routes/v1/inquiry.js";
 import logRoutes from "./routes/v1/log.js";
 import studentRoutes from "./routes/v1/students.js";
+import electionRoutes from "./routes/v1/elections.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 import { initializeSocket } from "./utils/socket.js";
@@ -32,7 +33,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:5500',
   'https://www.bellsuniversityalumni.com',
-  'https://bellstechalumni-git-testing-ablesaxs-projects.vercel.app'
+  'https://bellstechalumni-git-testing-ablesaxs-projects.vercel.app',
+  'http://localhost:5000'
 ];
 
 const corsOptions = {
@@ -60,6 +62,7 @@ app.use('/api/v1/newsletters', newsletterRoutes);
 app.use('/api/v1/inquiries', inquiryRoutes);
 app.use('/api/v1/logs', logRoutes); 
 app.use('/api/v1/students', studentRoutes);
+app.use('/api/v1/elections', electionRoutes);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 server.listen(5000, () =>{
