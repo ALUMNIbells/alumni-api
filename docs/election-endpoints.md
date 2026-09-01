@@ -60,18 +60,68 @@ This module manages election lifecycle operations for the alumni platform.
   - fullName: string
   - imgurl: string
 
-### 6. Vote in an election
+### 6. Edit an election
+
+- Method: PATCH
+- Route: /elections/:electionId
+- Access: Super-admin only
+- Restriction: Not allowed after any vote has been cast.
+
+### 7. Delete an election
+
+- Method: DELETE
+- Route: /elections/:electionId
+- Access: Super-admin only
+- Restriction: Allowed only when election has not started and no votes exist.
+
+### 8. Edit a position
+
+- Method: PATCH
+- Route: /elections/:electionId/positions/:positionId
+- Access: Super-admin only
+- Body:
+  - title: string (optional)
+  - description: string (optional)
+- Restriction: Not allowed after voting has started.
+
+### 9. Delete a position
+
+- Method: DELETE
+- Route: /elections/:electionId/positions/:positionId
+- Access: Super-admin only
+- Restriction: Not allowed after voting has started.
+
+### 10. Edit a candidate
+
+- Method: PATCH
+- Route: /elections/:electionId/positions/:positionId/candidates/:candidateId
+- Access: Super-admin only
+- Body:
+  - fullName: string (optional)
+  - imgurl: string (optional)
+- Restriction: Not allowed after voting has started.
+
+### 11. Delete a candidate
+
+- Method: DELETE
+- Route: /elections/:electionId/positions/:positionId/candidates/:candidateId
+- Access: Super-admin only
+- Restriction: Not allowed after voting has started.
+
+### 12. Vote in an election (one-time bulk submission)
 
 - Method: POST
 - Route: /elections/:electionId/vote
 - Access: Student only
 - Body:
-  - positionId: string
-  - candidateId: string
+  - votes: array of vote entries
+    - positionId: string
+    - candidateId: string
 - Restriction: Vote is accepted only within the startDate and endDate range.
-- Each student can vote once per position.
+- Student can submit only once per election.
+- Payload must include exactly one vote for every position in the election.
 
-### 7. Collate results
+### 13. Collate results
 
 - Method: POST
 - Route: /elections/:electionId/collate-results
@@ -79,14 +129,14 @@ This module manages election lifecycle operations for the alumni platform.
 - Restriction: Can only run after endDate has passed.
 - Stores the final result snapshot and winner for each position.
 
-### 8. Publish result
+### 14. Publish result
 
 - Method: PATCH
 - Route: /elections/:electionId/publish-results
 - Access: Super-admin only
 - Makes the result visible to the broader audience.
 
-### 9. View election results
+### 15. View election results
 
 - Method: GET
 - Route: /elections/:electionId/results

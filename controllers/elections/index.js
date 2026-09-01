@@ -59,6 +59,13 @@ const isElectionOpen = (election) => {
   return now >= startTime && now <= endTime;
 };
 
+const hasElectionStarted = (election) => {
+  const now = Date.now();
+  const startTime = new Date(election.startDate).getTime();
+
+  return now >= startTime;
+};
+
 export const createElection = async (req, res) => {
   try {
     if (!checkSuperAdmin(req, res)) return;
@@ -205,6 +212,49 @@ export const editElection = async (req, res) => {
   }
 };
 
+export const deleteElection = async (req, res) => {
+  try {
+    if (!checkSuperAdmin(req, res)) return;
+
+    const { electionId } = req.params;
+    const election = await Election.findById(electionId);
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: "Election not found",
+      });
+    }
+
+    if (election.votes.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete an election that has votes",
+      });
+    }
+
+    if (hasElectionStarted(election)) {
+      return res.status(400).json({
+        success: false,
+        message: "You can only delete an election that has not started",
+      });
+    }
+
+    await election.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: "Election deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting election:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete election",
+    });
+  }
+};
+
 export const addPositionToElection = async (req, res) => {
   try {
     if (!checkSuperAdmin(req, res)) return;
@@ -253,6 +303,121 @@ export const addPositionToElection = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to add position",
+    });
+  }
+};
+
+export const editPositionInElection = async (req, res) => {
+  try {
+    if (!checkSuperAdmin(req, res)) return;
+
+    const { electionId, positionId } = req.params;
+    const { title, description } = req.body;
+
+    if (title === undefined && description === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update. Provide title or description",
+      });
+    }
+
+    const election = await Election.findById(electionId);
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: "Election not found",
+      });
+    }
+
+    if (election.votes.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot edit positions after voting has started",
+      });
+    }
+
+    const position = election.positions.id(positionId);
+
+    if (!position) {
+      return res.status(404).json({
+        success: false,
+        message: "Position not found",
+      });
+    }
+
+    if (title !== undefined) {
+      if (!String(title).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Position title cannot be empty",
+        });
+      }
+      position.title = title;
+    }
+
+    if (description !== undefined) {
+      position.description = description;
+    }
+
+    await election.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Position updated successfully",
+      data: position,
+    });
+  } catch (error) {
+    console.error("Error editing position:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to edit position",
+    });
+  }
+};
+
+export const deletePositionFromElection = async (req, res) => {
+  try {
+    if (!checkSuperAdmin(req, res)) return;
+
+    const { electionId, positionId } = req.params;
+    const election = await Election.findById(electionId);
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: "Election not found",
+      });
+    }
+
+    if (election.votes.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete positions after voting has started",
+      });
+    }
+
+    const position = election.positions.id(positionId);
+
+    if (!position) {
+      return res.status(404).json({
+        success: false,
+        message: "Position not found",
+      });
+    }
+
+    election.positions.pull(positionId);
+    await election.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Position deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting position:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete position",
     });
   }
 };
@@ -317,17 +482,150 @@ export const addCandidateToPosition = async (req, res) => {
   }
 };
 
+export const editCandidateInPosition = async (req, res) => {
+  try {
+    if (!checkSuperAdmin(req, res)) return;
+
+    const { electionId, positionId, candidateId } = req.params;
+    const { fullName, imgurl } = req.body;
+
+    if (fullName === undefined && imgurl === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update. Provide fullName or imgurl",
+      });
+    }
+
+    const election = await Election.findById(electionId);
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: "Election not found",
+      });
+    }
+
+    if (election.votes.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot edit candidates after voting has started",
+      });
+    }
+
+    const position = election.positions.id(positionId);
+
+    if (!position) {
+      return res.status(404).json({
+        success: false,
+        message: "Position not found",
+      });
+    }
+
+    const candidate = position.candidates.id(candidateId);
+
+    if (!candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Candidate not found",
+      });
+    }
+
+    if (fullName !== undefined) {
+      if (!String(fullName).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Candidate fullName cannot be empty",
+        });
+      }
+      candidate.fullName = fullName;
+    }
+
+    if (imgurl !== undefined) {
+      candidate.imgurl = imgurl;
+    }
+
+    await election.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Candidate updated successfully",
+      data: candidate,
+    });
+  } catch (error) {
+    console.error("Error editing candidate:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to edit candidate",
+    });
+  }
+};
+
+export const deleteCandidateFromPosition = async (req, res) => {
+  try {
+    if (!checkSuperAdmin(req, res)) return;
+
+    const { electionId, positionId, candidateId } = req.params;
+    const election = await Election.findById(electionId);
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: "Election not found",
+      });
+    }
+
+    if (election.votes.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete candidates after voting has started",
+      });
+    }
+
+    const position = election.positions.id(positionId);
+
+    if (!position) {
+      return res.status(404).json({
+        success: false,
+        message: "Position not found",
+      });
+    }
+
+    const candidate = position.candidates.id(candidateId);
+
+    if (!candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Candidate not found",
+      });
+    }
+
+    position.candidates.pull(candidateId);
+    await election.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Candidate deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting candidate:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete candidate",
+    });
+  }
+};
+
 export const voteInElection = async (req, res) => {
   try {
     if (!checkStudent(req, res)) return;
 
     const { electionId } = req.params;
-    const { positionId, candidateId } = req.body;
+    const { votes } = req.body;
 
-    if (!positionId || !candidateId) {
+    if (!Array.isArray(votes) || votes.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "positionId and candidateId are required",
+        message: "votes is required and must be a non-empty array",
       });
     }
 
@@ -354,51 +652,104 @@ export const voteInElection = async (req, res) => {
       });
     }
 
-    const position = election.positions.id(positionId);
-    if (!position) {
-      return res.status(404).json({
-        success: false,
-        message: "Position not found",
-      });
-    }
-
-    const candidate = position.candidates.id(candidateId);
-    if (!candidate) {
-      return res.status(404).json({
-        success: false,
-        message: "Candidate not found for this position",
-      });
-    }
-
-    const hasVotedForPosition = election.votes.some(
-      (vote) =>
-        String(vote.studentId) === String(req.user.id) &&
-        String(vote.positionId) === String(positionId)
+    const hasVotedInElection = election.votes.some(
+      (vote) => String(vote.studentId) === String(req.user.id)
     );
 
-    if (hasVotedForPosition) {
+    if (hasVotedInElection) {
       return res.status(409).json({
         success: false,
-        message: "You have already voted for this position",
+        message: "You have already submitted your vote for this election",
       });
     }
 
-    election.votes.push({
-      studentId: req.user.id,
-      positionId,
-      candidateId,
-    });
+    if (election.positions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "This election has no positions configured",
+      });
+    }
+
+    const hasInvalidVoteShape = votes.some(
+      (voteItem) => !voteItem || !voteItem.positionId || !voteItem.candidateId
+    );
+
+    if (hasInvalidVoteShape) {
+      return res.status(400).json({
+        success: false,
+        message: "Each vote entry must include positionId and candidateId",
+      });
+    }
+
+    const electionPositionIds = election.positions.map((position) => String(position._id));
+    const submittedPositionIds = votes.map((voteItem) => String(voteItem.positionId));
+    const uniqueSubmittedPositionIds = new Set(submittedPositionIds);
+
+    if (uniqueSubmittedPositionIds.size !== submittedPositionIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate positionId detected in vote payload",
+      });
+    }
+
+    const missingPositionIds = electionPositionIds.filter(
+      (positionId) => !uniqueSubmittedPositionIds.has(positionId)
+    );
+
+    const unknownPositionIds = submittedPositionIds.filter(
+      (positionId) => !electionPositionIds.includes(positionId)
+    );
+
+    if (missingPositionIds.length > 0 || unknownPositionIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Votes must include exactly one candidate selection for every election position",
+        data: {
+          missingPositionIds,
+          unknownPositionIds,
+        },
+      });
+    }
+
+    const normalizedVotes = [];
+
+    for (const voteItem of votes) {
+      const position = election.positions.id(voteItem.positionId);
+
+      if (!position) {
+        return res.status(404).json({
+          success: false,
+          message: `Position not found: ${voteItem.positionId}`,
+        });
+      }
+
+      const candidate = position.candidates.id(voteItem.candidateId);
+
+      if (!candidate) {
+        return res.status(404).json({
+          success: false,
+          message: `Candidate not found for position ${voteItem.positionId}`,
+        });
+      }
+
+      normalizedVotes.push({
+        studentId: req.user.id,
+        positionId: voteItem.positionId,
+        candidateId: voteItem.candidateId,
+      });
+    }
+
+    election.votes.push(...normalizedVotes);
 
     election.status = "active";
     await election.save();
 
     return res.status(200).json({
       success: true,
-      message: "Vote submitted successfully",
+      message: "Votes submitted successfully",
       data: {
         electionId,
-        positionId,
-        candidateId,
+        votes: normalizedVotes,
       },
     });
   } catch (error) {
@@ -537,7 +888,8 @@ export const getElectionResults = async (req, res) => {
       });
     }
 
-    const isSuperAdmin = req.user && req.user.role === "super-admin";
+    const userRole = typeof req.user?.role === "string" ? req.user.role.trim().toLowerCase() : "";
+    const isSuperAdmin = userRole === "super-admin";
     const isPubliclyVisible = Boolean(election.isPublished);
 
     if (!isSuperAdmin && !isPubliclyVisible) {

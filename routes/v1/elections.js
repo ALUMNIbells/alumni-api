@@ -1,11 +1,17 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import verifyTken from "../../verifyToken.js";
 import {
   addCandidateToPosition,
   addPositionToElection,
   collateElectionResults,
   createElection,
+  deleteCandidateFromPosition,
+  deleteElection,
+  deletePositionFromElection,
+  editCandidateInPosition,
   editElection,
+  editPositionInElection,
   getElectionById,
   getElectionResults,
   getElections,
@@ -24,6 +30,27 @@ const requireRole = (roles) => (req, res, next) => {
   }
 
   next();
+};
+
+const optionalVerifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return next();
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: "Token is not valid!",
+      });
+    }
+
+    req.user = user;
+    next();
+  });
 };
 
 /**
@@ -142,6 +169,26 @@ router.patch("/:electionId", verifyTken, editElection)
 
 /**
  * @openapi
+ * /elections/{electionId}:
+ *   delete:
+ *     tags: [Elections]
+ *     summary: Delete an election that has not started and has no votes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: electionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Election deleted successfully
+ */
+router.delete("/:electionId", verifyTken, requireRole(["super-admin"]), deleteElection);
+
+/**
+ * @openapi
  * /elections/{electionId}/positions:
  *   post:
  *     tags: [Elections]
@@ -175,6 +222,77 @@ router.post(
   verifyTken,
   requireRole(["super-admin"]),
   addPositionToElection
+);
+
+/**
+ * @openapi
+ * /elections/{electionId}/positions/{positionId}:
+ *   patch:
+ *     tags: [Elections]
+ *     summary: Edit an election position
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: electionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: positionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Position updated successfully
+ */
+router.patch(
+  "/:electionId/positions/:positionId",
+  verifyTken,
+  requireRole(["super-admin"]),
+  editPositionInElection
+);
+
+/**
+ * @openapi
+ * /elections/{electionId}/positions/{positionId}:
+ *   delete:
+ *     tags: [Elections]
+ *     summary: Delete an election position
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: electionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: positionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Position deleted successfully
+ */
+router.delete(
+  "/:electionId/positions/:positionId",
+  verifyTken,
+  requireRole(["super-admin"]),
+  deletePositionFromElection
 );
 
 /**
@@ -221,10 +339,91 @@ router.post(
 
 /**
  * @openapi
+ * /elections/{electionId}/positions/{positionId}/candidates/{candidateId}:
+ *   patch:
+ *     tags: [Elections]
+ *     summary: Edit a candidate in an election position
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: electionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: positionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: candidateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               imgurl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Candidate updated successfully
+ */
+router.patch(
+  "/:electionId/positions/:positionId/candidates/:candidateId",
+  verifyTken,
+  requireRole(["super-admin"]),
+  editCandidateInPosition
+);
+
+/**
+ * @openapi
+ * /elections/{electionId}/positions/{positionId}/candidates/{candidateId}:
+ *   delete:
+ *     tags: [Elections]
+ *     summary: Delete a candidate from an election position
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: electionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: positionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: candidateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Candidate deleted successfully
+ */
+router.delete(
+  "/:electionId/positions/:positionId/candidates/:candidateId",
+  verifyTken,
+  requireRole(["super-admin"]),
+  deleteCandidateFromPosition
+);
+
+/**
+ * @openapi
  * /elections/{electionId}/vote:
  *   post:
  *     tags: [Elections]
- *     summary: Submit a vote for a candidate in a position
+ *     summary: Submit all votes for an election in one request (one-time submission)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -239,15 +438,21 @@ router.post(
  *         application/json:
  *           schema:
  *             type: object
- *             required: [positionId, candidateId]
+ *             required: [votes]
  *             properties:
- *               positionId:
- *                 type: string
- *               candidateId:
- *                 type: string
+ *               votes:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [positionId, candidateId]
+ *                   properties:
+ *                     positionId:
+ *                       type: string
+ *                     candidateId:
+ *                       type: string
  *     responses:
  *       200:
- *         description: Vote submitted successfully
+ *         description: Votes submitted successfully
  *       403:
  *         description: Voting is not allowed outside the election window
  */
@@ -323,6 +528,6 @@ router.patch(
  *       403:
  *         description: Results are not yet published
  */
-router.get("/:electionId/results", getElectionResults);
+router.get("/:electionId/results", optionalVerifyToken, getElectionResults);
 
 export default router;
